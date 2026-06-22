@@ -1,0 +1,35 @@
+[settings]
+lockfile = true
+lockfile_platforms = ["macos-arm64", "linux-x64", "linux-arm64"]
+locked = true
+
+[tools]
+go = "1.26.4"
+actionlint = "latest"
+zizmor = "latest"
+golangci-lint = "latest"
+goreleaser = "latest"
+
+[shell_alias]
+"dots:local" = "go run ."
+"dots:it" = "DOTS_CONFIG=\"${XDG_CONFIG_HOME:-$HOME/.config}/dots/integration-test/config.toml\" go run ."
+
+[tasks.test]
+description = "Run Go tests"
+run = "go test ./..."
+
+[tasks."integration:test"]
+description = "Run integration tests"
+run = "go test -v -count=1 -tags=integration ./integration"
+
+[tasks.lint]
+description = "Run Go and GitHub Actions linters"
+run = [
+  "golangci-lint run",
+  "actionlint .github/workflows/*.yml",
+  "zizmor --pedantic --no-ignores .github/workflows",
+]
+
+[tasks.build]
+description = "Build dots"
+run = "go build -o ./dist/dots ."

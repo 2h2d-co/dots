@@ -1,0 +1,33 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: standard
+  enable:
+    - bodyclose
+    - durationcheck
+    - errchkjson
+    - errorlint
+    - gosec
+    - makezero
+    - misspell
+    - nilerr
+    - nilnesserr
+    - nilnil
+    - nolintlint
+    - predeclared
+    - revive
+    - rowserrcheck
+    - sqlclosecheck
+    - unconvert
+    - unparam
+    - usetesting
+    - wastedassign
+    - whitespace
+
+formatters:
+  enable:
+    - gofmt
+    - goimports

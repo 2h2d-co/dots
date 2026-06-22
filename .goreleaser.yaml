@@ -1,0 +1,49 @@
+version: 2
+
+project_name: dots
+
+builds:
+  - id: dots
+    main: .
+    binary: dots
+    env:
+      - CGO_ENABLED=0
+      - GOFLAGS=-mod=readonly
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - arm64
+      - amd64
+    ignore:
+      - goos: darwin
+        goarch: amd64
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+
+archives:
+  - id: dots
+    ids:
+      - dots
+    formats:
+      - tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - README.md
+      - LICENSE
+      - examples/config.toml
+      - docs/man/*.1
+
+checksum:
+  name_template: checksums.txt
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  use: github
+
+release:
+  github:
+    owner: 2h2d-co
+    name: dots

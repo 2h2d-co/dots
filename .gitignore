@@ -1,0 +1,50 @@
+# Binaries and build outputs
+/dots
+/bin/
+/dist/
+/build/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Go test and coverage artifacts
+*.test
+*.out
+*.prof
+coverage.txt
+coverage.html
+coverage.out
+
+# Go workspace/local module files
+go.work
+go.work.sum
+/vendor/
+
+# Local environment, generated state, and secrets
+.env
+.env.*
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+
+# Tool caches and temporary files
+/.cache/
+/tmp/
+/temp/
+*.tmp
+
+# Editor/OS metadata
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Agent-local notes and roadmap
+DESIRES.md
+LEARNINGS.md
+MISTAKES.md
+roadmap.md
