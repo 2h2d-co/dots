@@ -6,7 +6,9 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) st
 
 ## Unreleased
 
-_No unreleased changes._
+### Changed
+
+- Changed the release workflow to attest `checksums.txt` alongside release archives.
 
 ## [0.0.1] - 2026-06-22
 
