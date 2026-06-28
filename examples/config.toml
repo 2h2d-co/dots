@@ -1,5 +1,8 @@
 # dots example config
 # Default path: ${XDG_CONFIG_HOME:-$HOME/.config}/dots/config.toml
 
-repo = "~/dotfiles"
-profile = "default"
+default_profile = "personal"
+
+[profiles]
+personal = "~/dotfiles"
+work = "~/work-dotfiles"

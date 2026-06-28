@@ -37,7 +37,7 @@ func NewRootCommand(version string) *cobra.Command {
 	root.SetOut(app.out)
 	root.SetErr(app.errOut)
 	root.PersistentFlags().StringVar(&app.configPath, "config", "", "config file path (overrides DOTS_CONFIG; default $XDG_CONFIG_HOME/dots/config.toml or ~/.config/dots/config.toml)")
-	root.PersistentFlags().StringVar(&app.profile, "profile", "", "profile name (overrides DOTS_PROFILE and config profile)")
+	root.PersistentFlags().StringVar(&app.profile, "profile", "", "profile name (overrides DOTS_PROFILE and default_profile)")
 
 	root.AddCommand(app.newInitCommand())
 	root.AddCommand(app.newAddCommand())

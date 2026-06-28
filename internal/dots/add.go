@@ -100,12 +100,18 @@ func addPath(rt *Runtime, target string) ([]FileRecord, error) {
 }
 
 func rejectRepoTarget(rt *Runtime, target string) error {
-	insideRepo, err := pathInsideOrEqual(rt.Repo, target)
-	if err != nil {
-		return err
+	repos := rt.ConfiguredRepos
+	if len(repos) == 0 {
+		repos = []string{rt.Repo}
 	}
-	if insideRepo {
-		return fmt.Errorf("refusing to add paths from the dots repo: %s", target)
+	for _, repo := range repos {
+		insideRepo, err := pathInsideOrEqual(repo, target)
+		if err != nil {
+			return err
+		}
+		if insideRepo {
+			return fmt.Errorf("refusing to add paths from the dots repo %s: %s", repo, target)
+		}
 	}
 	return nil
 }

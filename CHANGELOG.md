@@ -8,7 +8,29 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) st
 
 ### Changed
 
+- Changed config from single `repo`/`profile` keys to `default_profile` plus a `[profiles]` table so one config can manage multiple profile/repo pairs. Migrate from:
+
+  ```toml
+  repo = "~/dotfiles"
+  profile = "personal"
+  ```
+
+  to:
+
+  ```toml
+  default_profile = "personal"
+
+  [profiles]
+  personal = "~/dotfiles"
+  ```
+
+- Changed `dots init` to add a new configured profile to an existing config, while refusing duplicate profile names and pre-existing profile repo/state databases.
+- Changed `dots doctor` to check all configured profiles across configured repos unless a profile override is set.
 - Changed the release workflow to attest `checksums.txt` alongside release archives.
+
+### Security
+
+- Refuse `dots add` paths from any configured dots repo, reject nested configured repos, and reject initializing a repo path already tracked as home content by another configured profile.
 
 ## [0.0.1] - 2026-06-22
 

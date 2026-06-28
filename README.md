@@ -12,6 +12,9 @@ Repository: <https://github.com/2h2d-co/dots>
 # Create config, a repo profile directory, and tracking databases.
 dots init ~/dotfiles --profile personal
 
+# Add more configured profiles to the same config when needed.
+dots init ~/work-dotfiles --profile work
+
 # Track a file or directory under $HOME. With no PATH, add uses the current directory.
 dots add ~/.zshrc
 dots add ~/.config/nvim
@@ -24,11 +27,11 @@ dots apply
 
 ## Commands
 
-- `dots init REPO --profile PROFILE`: initialize config, one profile directory, and SQLite tracking databases.
-- `dots add [PATH]`: copy a file or directory from `$HOME` into the active profile and update the profile database. `PATH` defaults to the current directory. Paths inside the configured dots repo are refused.
+- `dots init REPO --profile PROFILE`: initialize config or add one configured profile, then create its profile directory and SQLite tracking databases.
+- `dots add [PATH]`: copy a file or directory from `$HOME` into the active profile and update the profile database. `PATH` defaults to the current directory. Paths inside any configured dots repo are refused.
 - `dots apply [--dry-run] [--force]`: copy tracked profile files back to `$HOME` after a full preflight check. `--force` backs up conflicting destinations before overwriting.
 - `dots status`: show profile drift, pending changes, destination conflicts, and stale applied state for the active profile.
-- `dots doctor`: run status checks for all profiles, or only the overridden profile when `--profile` or `DOTS_PROFILE` is set.
+- `dots doctor`: run status checks for all configured profiles, or only the overridden profile when `--profile` or `DOTS_PROFILE` is set.
 - `dots list`: list tracked files in the active profile.
 - `dots reindex`: rebuild the active profile database from current profile files. If the repo has a configured git upstream, reindex refuses to run when the upstream has changes that are not reflected locally.
 - `dots forget PATH...`: stop tracking paths without deleting destination files from `$HOME`.
@@ -40,15 +43,26 @@ dots apply
 
 - Config lives at `$XDG_CONFIG_HOME/dots/config.toml`, falling back to `~/.config/dots/config.toml`.
 - `DOTS_CONFIG=PATH` and `--config PATH` override the config path; the flag wins over the environment variable.
-- `DOTS_PROFILE=PROFILE` and `--profile PROFILE` override the active profile; the flag wins over the environment variable and config profile.
-- Profiles are top-level folders in the configured repo directory.
+- Config uses one `default_profile` and one `[profiles]` table mapping profile names to repo paths:
+
+  ```toml
+  default_profile = "personal"
+
+  [profiles]
+  personal = "~/dotfiles"
+  work = "~/work-dotfiles"
+  ```
+
+- `DOTS_PROFILE=PROFILE` and `--profile PROFILE` override the active profile; the flag wins over the environment variable and `default_profile`.
+- Profiles are top-level folders in their configured repo directory.
 - Each profile has a top-level SQLite DB in the repo that catalogs tracked files, file modes, sizes, and SHA-256 sums.
 - Last applied state is tracked in `${XDG_STATE_HOME:-$HOME/.local/state}/dots/{profile}.db`.
+- `dots add` refuses paths inside any repo configured in the active config.
 
 ## File handling
 
 - `dots` always copies regular files; it never creates symlinks.
-- Symlinks, other unsupported file types, and paths inside the configured dots repo are rejected.
+- Symlinks, other unsupported file types, and paths inside any configured dots repo are rejected.
 - `.dotsignore` in an added directory excludes matching paths from copy/tracking and is itself copied.
 - Ignore patterns from that top-level `.dotsignore` apply to nested paths under the added directory.
 - Nested `.dotsignore` files are treated as regular files when they are not ignored; they do not add more ignore rules.

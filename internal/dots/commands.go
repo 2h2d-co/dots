@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -13,8 +13,8 @@ import (
 func (a *App) newInitCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "init REPO",
-		Short: "Initialize dots config and a profile",
-		Long:  "Initialize dots config, the dotfiles repository, one profile directory, and SQLite tracking databases. A profile is required via --profile or DOTS_PROFILE.",
+		Short: "Initialize dots config and a configured profile",
+		Long:  "Initialize or extend dots config, the dotfiles repository, one profile directory, and SQLite tracking databases. A profile is required via --profile or DOTS_PROFILE.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			profile := a.resolveProfileOverride()
@@ -25,22 +25,62 @@ func (a *App) newInitCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if _, err := os.Stat(configPath); err == nil {
-				return fmt.Errorf("config already exists: %s", configPath)
-			} else if !os.IsNotExist(err) {
-				return fmt.Errorf("check config %s: %w", configPath, err)
-			}
-			repo, err := expandPath(args[0])
+			repo, err := resolveRepoPath(args[0])
 			if err != nil {
 				return err
 			}
-			repo, err = filepath.Abs(repo)
+			home, err := resolveHomeDir()
 			if err != nil {
-				return fmt.Errorf("resolve repo path: %w", err)
+				return err
 			}
 			stateDir, err := defaultStateDir()
 			if err != nil {
 				return err
+			}
+
+			cfg := Config{
+				DefaultProfile: profile,
+				Profiles: map[string]string{
+					profile: repo,
+				},
+			}
+			configExists := false
+			if _, err := os.Stat(configPath); err == nil {
+				configExists = true
+				cfg, err = loadConfig(configPath)
+				if err != nil {
+					return err
+				}
+				if err := validateConfig(cfg); err != nil {
+					return err
+				}
+				if _, ok := cfg.Profiles[profile]; ok {
+					return fmt.Errorf("profile %q is already configured", profile)
+				}
+				profiles, _, err := resolveConfiguredProfiles(cfg)
+				if err != nil {
+					return err
+				}
+				if err := rejectOverlappingConfiguredRepos(repo, profiles); err != nil {
+					return err
+				}
+				if err := rejectTrackedRepoDestination(repo, home, profiles); err != nil {
+					return err
+				}
+				cfg.Profiles[profile] = repo
+			} else if !os.IsNotExist(err) {
+				return fmt.Errorf("check config %s: %w", configPath, err)
+			}
+
+			if _, err := os.Stat(repoDBPath(repo, profile)); err == nil {
+				return fmt.Errorf("repo database already exists: %s", repoDBPath(repo, profile))
+			} else if !os.IsNotExist(err) {
+				return fmt.Errorf("check repo database: %w", err)
+			}
+			if _, err := os.Stat(stateDBPath(stateDir, profile)); err == nil {
+				return fmt.Errorf("state database already exists: %s", stateDBPath(stateDir, profile))
+			} else if !os.IsNotExist(err) {
+				return fmt.Errorf("check state database: %w", err)
 			}
 
 			if err := os.MkdirAll(filepath.Join(repo, profile), 0o750); err != nil {
@@ -55,7 +95,12 @@ func (a *App) newInitCommand() *cobra.Command {
 			if err := ensureStateDB(stateDir, profile); err != nil {
 				return err
 			}
-			if err := writeConfig(configPath, Config{Repo: repo, Profile: profile}); err != nil {
+			if configExists {
+				err = replaceConfig(configPath, cfg)
+			} else {
+				err = createConfig(configPath, cfg)
+			}
+			if err != nil {
 				return err
 			}
 
@@ -65,11 +110,122 @@ func (a *App) newInitCommand() *cobra.Command {
 	}
 }
 
+func rejectOverlappingConfiguredRepos(repo string, profiles map[string]RuntimeProfile) error {
+	for _, profile := range runtimeProfileNames(profiles) {
+		configuredRepo := profiles[profile].Repo
+		sameRepo, err := pathsEqual(repo, configuredRepo)
+		if err != nil {
+			return err
+		}
+		if sameRepo {
+			continue
+		}
+
+		newInsideExisting, err := pathInsideOrEqual(configuredRepo, repo)
+		if err != nil {
+			return err
+		}
+		existingInsideNew, err := pathInsideOrEqual(repo, configuredRepo)
+		if err != nil {
+			return err
+		}
+		if newInsideExisting || existingInsideNew {
+			return fmt.Errorf("repo %s overlaps configured repo for profile %q: %s", repo, profile, configuredRepo)
+		}
+	}
+	return nil
+}
+
+func rejectTrackedRepoDestination(repo, home string, profiles map[string]RuntimeProfile) error {
+	insideHome, err := pathInsideOrEqual(home, repo)
+	if err != nil {
+		return err
+	}
+	if !insideHome {
+		return nil
+	}
+
+	repoRoot, err := homeRelativeRepoRoot(home, repo)
+	if err != nil {
+		return err
+	}
+	for _, profile := range runtimeProfileNames(profiles) {
+		dbPath := repoDBPath(profiles[profile].Repo, profile)
+		if _, err := os.Stat(dbPath); err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				continue
+			}
+			return fmt.Errorf("check repo database %s: %w", dbPath, err)
+		}
+
+		repoDB, err := openRepoDB(profiles[profile].Repo, profile)
+		if err != nil {
+			return err
+		}
+		records, err := listRepoRecords(repoDB)
+		if err != nil {
+			return errors.Join(err, repoDB.Close())
+		}
+		if err := repoDB.Close(); err != nil {
+			return err
+		}
+
+		for _, record := range records {
+			if trackedPathInsideRoot(repoRoot, record.Path) {
+				return fmt.Errorf("repo %s is already tracked by profile %q as %s", repo, profile, record.Path)
+			}
+		}
+	}
+	return nil
+}
+
+func pathsEqual(a, b string) (bool, error) {
+	comparableA, err := comparablePath(a)
+	if err != nil {
+		return false, fmt.Errorf("resolve path %s: %w", a, err)
+	}
+	comparableB, err := comparablePath(b)
+	if err != nil {
+		return false, fmt.Errorf("resolve path %s: %w", b, err)
+	}
+	return comparableA == comparableB, nil
+}
+
+func homeRelativeRepoRoot(home, repo string) (string, error) {
+	absRepo, err := comparablePath(repo)
+	if err != nil {
+		return "", fmt.Errorf("resolve repo path: %w", err)
+	}
+	absHome, err := comparablePath(home)
+	if err != nil {
+		return "", fmt.Errorf("resolve home path: %w", err)
+	}
+	rel, err := filepath.Rel(absHome, absRepo)
+	if err != nil {
+		return "", fmt.Errorf("resolve home-relative repo path: %w", err)
+	}
+	rel = filepath.ToSlash(filepath.Clean(rel))
+	if rel == "." {
+		return "", nil
+	}
+	if rel == ".." || strings.HasPrefix(rel, "../") {
+		return "", fmt.Errorf("repo %s is outside home directory %s", absRepo, absHome)
+	}
+	return cleanTrackedPath(rel)
+}
+
+func trackedPathInsideRoot(root, trackedPath string) bool {
+	if root == "" {
+		return true
+	}
+	return trackedPath == root || strings.HasPrefix(trackedPath, root+"/")
+}
+
 func (a *App) newAddCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "add [PATH]",
 		Short: "Copy a file or directory into the active profile",
-		Long:  "Copy a file or directory from the home directory into the active profile and update the profile tracking database. PATH defaults to the current directory. Paths inside the configured dots repo are refused.",
+		Long:  "Copy a file or directory from the home directory into the active profile and update the profile tracking database. PATH defaults to the current directory. Paths inside any configured dots repo are refused.",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			target, err := targetOrCurrent(args)
@@ -150,27 +306,22 @@ func (a *App) newDoctorCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "doctor",
 		Short: "Check one or all profiles for issues",
-		Long:  "Run status checks for all profiles in the repo, or only the overridden profile when --profile or DOTS_PROFILE is set. Doctor exits 0 when every checked profile is clean and 1 when any checked profile needs attention.",
+		Long:  "Run status checks for all configured profiles, or only the overridden profile when --profile or DOTS_PROFILE is set. Doctor exits 0 when every checked profile is clean and 1 when any checked profile needs attention.",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			rt, err := a.resolveRuntime()
 			if err != nil {
 				return err
 			}
-			profiles, err := a.doctorProfiles(rt)
-			if err != nil {
-				return err
-			}
+			profiles := a.doctorRuntimes(rt)
 			if _, err := fmt.Fprintf(cmd.OutOrStdout(), "Doctor: checking %d profile(s)\n", len(profiles)); err != nil {
 				return err
 			}
 			dirty := false
-			for _, profile := range profiles {
+			for _, profileRuntime := range profiles {
 				if _, err := fmt.Fprintln(cmd.OutOrStdout()); err != nil {
 					return err
 				}
-				profileRuntime := *rt
-				profileRuntime.Profile = profile
 				report, _, err := analyzeStatus(&profileRuntime)
 				if err != nil {
 					return err
@@ -192,32 +343,19 @@ func (a *App) newDoctorCommand() *cobra.Command {
 	}
 }
 
-func (a *App) doctorProfiles(rt *Runtime) ([]string, error) {
+func (a *App) doctorRuntimes(rt *Runtime) []Runtime {
 	if a.resolveProfileOverride() != "" {
-		return []string{rt.Profile}, nil
+		return []Runtime{*rt}
 	}
-	entries, err := os.ReadDir(rt.Repo)
-	if err != nil {
-		return nil, fmt.Errorf("read repo directory: %w", err)
+
+	profiles := make([]Runtime, 0, len(rt.ConfiguredProfiles))
+	for _, profile := range runtimeProfileNames(rt.ConfiguredProfiles) {
+		profileRuntime := *rt
+		profileRuntime.Profile = profile
+		profileRuntime.Repo = rt.ConfiguredProfiles[profile].Repo
+		profiles = append(profiles, profileRuntime)
 	}
-	var profiles []string
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-		profile := entry.Name()
-		if err := validateProfile(profile); err != nil {
-			continue
-		}
-		if _, err := os.Stat(repoDBPath(rt.Repo, profile)); err == nil {
-			profiles = append(profiles, profile)
-		}
-	}
-	if len(profiles) == 0 {
-		profiles = append(profiles, rt.Profile)
-	}
-	sort.Strings(profiles)
-	return profiles, nil
+	return profiles
 }
 
 func (a *App) newListCommand() *cobra.Command {
