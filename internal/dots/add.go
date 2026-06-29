@@ -3,12 +3,27 @@ package dots
 import (
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 )
 
+type addPlanItem struct {
+	Source string
+	Record FileRecord
+}
+
 func addPath(rt *Runtime, target string) ([]FileRecord, error) {
+	plan, err := collectAddPlan(rt, target)
+	if err != nil {
+		return nil, err
+	}
+	return executeAddPlan(rt, plan)
+}
+
+func collectAddPlan(rt *Runtime, target string) ([]addPlanItem, error) {
 	expanded, err := expandPath(target)
 	if err != nil {
 		return nil, err
@@ -36,21 +51,23 @@ func addPath(rt *Runtime, target string) ([]FileRecord, error) {
 		if err != nil {
 			return nil, err
 		}
-		return copyOneTrackedFile(rt, absTarget, trackedPath, info)
+		item, err := newAddPlanItem(absTarget, trackedPath, info)
+		if err != nil {
+			return nil, err
+		}
+		return []addPlanItem{item}, nil
 	}
 
-	rootTrackedPath, err := homeRelativePath(rt.Home, absTarget)
-	if err != nil {
+	if _, err := homeRelativePath(rt.Home, absTarget); err != nil {
 		return nil, err
 	}
-	_ = rootTrackedPath
 
 	matcher, err := loadDotsIgnore(filepath.Join(absTarget, ".dotsignore"))
 	if err != nil {
 		return nil, fmt.Errorf("load .dotsignore: %w", err)
 	}
 
-	var records []FileRecord
+	var plan []addPlanItem
 	if err := filepath.WalkDir(absTarget, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -86,17 +103,19 @@ func addPath(rt *Runtime, target string) ([]FileRecord, error) {
 		if err != nil {
 			return err
 		}
-		record, err := copyTrackedFile(rt, path, trackedPath, info)
+		item, err := newAddPlanItem(path, trackedPath, info)
 		if err != nil {
 			return err
 		}
-		records = append(records, record)
+		plan = append(plan, item)
 		return nil
 	}); err != nil {
 		return nil, fmt.Errorf("add directory %s: %w", absTarget, err)
 	}
-	sortFileRecords(records)
-	return records, nil
+	sort.Slice(plan, func(i, j int) bool {
+		return plan[i].Record.Path < plan[j].Record.Path
+	})
+	return plan, nil
 }
 
 func rejectRepoTarget(rt *Runtime, target string) error {
@@ -116,24 +135,49 @@ func rejectRepoTarget(rt *Runtime, target string) error {
 	return nil
 }
 
-func copyOneTrackedFile(rt *Runtime, src, trackedPath string, info fs.FileInfo) ([]FileRecord, error) {
-	record, err := copyTrackedFile(rt, src, trackedPath, info)
+func newAddPlanItem(src, trackedPath string, info fs.FileInfo) (addPlanItem, error) {
+	hash, err := hashFile(src)
 	if err != nil {
-		return nil, err
+		return addPlanItem{}, err
 	}
-	return []FileRecord{record}, nil
+	return addPlanItem{
+		Source: src,
+		Record: FileRecord{
+			Path:   trackedPath,
+			SHA256: hash,
+			Mode:   int64(info.Mode().Perm()),
+			Size:   info.Size(),
+		},
+	}, nil
 }
 
-func copyTrackedFile(rt *Runtime, src, trackedPath string, info fs.FileInfo) (FileRecord, error) {
-	dst := repoFilePath(rt, trackedPath)
-	if err := copyFileFromInfo(src, dst, info); err != nil {
-		return FileRecord{}, err
+func executeAddPlan(rt *Runtime, plan []addPlanItem) ([]FileRecord, error) {
+	records := make([]FileRecord, 0, len(plan))
+	for _, item := range plan {
+		if err := copyFile(item.Source, repoFilePath(rt, item.Record.Path), item.Record.Mode); err != nil {
+			return nil, err
+		}
+		record, err := fileRecord(profileDir(rt), item.Record.Path)
+		if err != nil {
+			return nil, err
+		}
+		records = append(records, record)
 	}
-	record, err := fileRecord(profileDir(rt), trackedPath)
-	if err != nil {
-		return FileRecord{}, err
+	sortFileRecords(records)
+	return records, nil
+}
+
+func writeAddPlan(out io.Writer, rt *Runtime, plan []addPlanItem) error {
+	if _, err := fmt.Fprintln(out, "Add plan (dry run; no files changed):"); err != nil {
+		return err
 	}
-	return record, nil
+	for _, item := range plan {
+		if _, err := fmt.Fprintf(out, "  %s\n", item.Record.Path); err != nil {
+			return err
+		}
+	}
+	_, err := fmt.Fprintf(out, "Would add %d file(s) to profile %s\n", len(plan), rt.Profile)
+	return err
 }
 
 func targetOrCurrent(args []string) (string, error) {

@@ -371,6 +371,28 @@ func TestAddDefaultsToCurrentDirectory(t *testing.T) {
 	assertContains(t, result.stdout, ".config/cwdapp/nested/tool")
 }
 
+func TestAddDryRunDoesNotCopyOrTrack(t *testing.T) {
+	env := newTestEnv(t)
+	target := filepath.Join(env.home, ".config", "dryapp")
+	writeFile(t, filepath.Join(target, ".dotsignore"), "ignored\n", 0o644)
+	writeFile(t, filepath.Join(target, "keep"), "keep\n", 0o644)
+	writeFile(t, filepath.Join(target, "ignored"), "ignored\n", 0o644)
+
+	env.requireRun("init", env.repo, "--profile", "personal")
+	result := env.requireRun("add", "--dry-run", target)
+	assertContains(t, result.stdout, "Add plan (dry run; no files changed):")
+	assertContains(t, result.stdout, "  .config/dryapp/.dotsignore")
+	assertContains(t, result.stdout, "  .config/dryapp/keep")
+	assertContains(t, result.stdout, "Would add 2 file(s) to profile personal")
+	assertNotContains(t, result.stdout, ".config/dryapp/ignored")
+	assertFileMissing(t, filepath.Join(env.repo, "personal", ".config", "dryapp", "keep"))
+
+	result = env.requireRun("list")
+	if strings.TrimSpace(result.stdout) != "" {
+		t.Fatalf("list output = %q, want no tracked files after add dry-run", result.stdout)
+	}
+}
+
 func TestAddRejectsConfiguredRepoPaths(t *testing.T) {
 	env := newTestEnv(t)
 	env.repo = filepath.Join(env.home, "dotfiles")

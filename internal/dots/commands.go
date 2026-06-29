@@ -222,10 +222,11 @@ func trackedPathInsideRoot(root, trackedPath string) bool {
 }
 
 func (a *App) newAddCommand() *cobra.Command {
-	return &cobra.Command{
+	var dryRun bool
+	cmd := &cobra.Command{
 		Use:   "add [PATH]",
 		Short: "Copy a file or directory into the active profile",
-		Long:  "Copy a file or directory from the home directory into the active profile and update the profile tracking database. PATH defaults to the current directory. Paths inside any configured dots repo are refused.",
+		Long:  "Copy a file or directory from the home directory into the active profile and update the profile tracking database. PATH defaults to the current directory. Paths inside any configured dots repo are refused. --dry-run lists the files that would be added without copying files or updating the database.",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			target, err := targetOrCurrent(args)
@@ -236,7 +237,14 @@ func (a *App) newAddCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			records, err := addPath(rt, target)
+			plan, err := collectAddPlan(rt, target)
+			if err != nil {
+				return err
+			}
+			if dryRun {
+				return writeAddPlan(cmd.OutOrStdout(), rt, plan)
+			}
+			records, err := executeAddPlan(rt, plan)
 			if err != nil {
 				return err
 			}
@@ -254,6 +262,8 @@ func (a *App) newAddCommand() *cobra.Command {
 			return err
 		},
 	}
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would be added without changing files")
+	return cmd
 }
 
 func (a *App) newApplyCommand() *cobra.Command {

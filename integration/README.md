@@ -15,7 +15,7 @@ The suite covers:
 - initialization of config, repo, active profile, profile DB, and state directories
 - multiple configured profiles in one config, including profiles that share a repo and profiles with distinct repos
 - init rejection for duplicate profiles, pre-existing profile databases, overlapping repo roots, and new repos already tracked as home content
-- add with current-directory default and explicit target directory
+- add with dry-run, current-directory default, and explicit target directory
 - add rejection for symlinks, unsupported file types, paths outside `$HOME`, and paths inside any configured dots repo
 - `.dotsignore` filtering while copying `.dotsignore` itself
 - profile-scoped tracking under top-level repo profile folders

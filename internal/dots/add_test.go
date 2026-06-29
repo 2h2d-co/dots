@@ -1,6 +1,7 @@
 package dots
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -57,6 +58,54 @@ func TestAddStillAcceptsHomePathsWhenRepoIsUnderHome(t *testing.T) {
 		t.Fatalf("fileRecord(copied file) error = %v", err)
 	}
 	assertFileRecords(t, []FileRecord{copiedRecord}, []FileRecord{testFileRecord(".zshrc", "shell\n")})
+}
+
+func TestCollectAddPlanDoesNotCopy(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	home := filepath.Join(root, "home")
+	repo := filepath.Join(root, "repo")
+	rt := &Runtime{Home: home, Repo: repo, Profile: "personal"}
+	sourceRoot := filepath.Join(home, ".config", "dryapp")
+	writeUnitFile(t, filepath.Join(sourceRoot, ".dotsignore"), "ignored\n", 0o644)
+	writeUnitFile(t, filepath.Join(sourceRoot, "keep"), "keep\n", 0o644)
+	writeUnitFile(t, filepath.Join(sourceRoot, "ignored"), "ignored\n", 0o644)
+
+	plan, err := collectAddPlan(rt, sourceRoot)
+	if err != nil {
+		t.Fatalf("collectAddPlan() error = %v", err)
+	}
+	records := make([]FileRecord, 0, len(plan))
+	for _, item := range plan {
+		records = append(records, item.Record)
+	}
+	assertFileRecords(t, records, []FileRecord{
+		testFileRecord(".config/dryapp/.dotsignore", "ignored\n"),
+		testFileRecord(".config/dryapp/keep", "keep\n"),
+	})
+	if _, err := os.Stat(filepath.Join(repo, "personal", ".config", "dryapp", "keep")); !os.IsNotExist(err) {
+		t.Fatalf("dry-run plan copied repo file, stat err = %v", err)
+	}
+
+	var out bytes.Buffer
+	if err := writeAddPlan(&out, rt, plan); err != nil {
+		t.Fatalf("writeAddPlan() error = %v", err)
+	}
+	got := out.String()
+	for _, want := range []string{
+		"Add plan (dry run; no files changed):",
+		"  .config/dryapp/.dotsignore",
+		"  .config/dryapp/keep",
+		"Would add 2 file(s) to profile personal",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("dry-run output missing %q\noutput:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, ".config/dryapp/ignored") {
+		t.Fatalf("dry-run output includes ignored path\noutput:\n%s", got)
+	}
 }
 
 func TestPathInsideOrEqual(t *testing.T) {

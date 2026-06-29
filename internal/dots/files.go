@@ -201,10 +201,6 @@ func fileModeFromRecord(mode int64) (fs.FileMode, error) {
 	return fs.FileMode(mode).Perm(), nil
 }
 
-func copyFileFromInfo(src, dst string, info fs.FileInfo) error {
-	return copyFile(src, dst, int64(info.Mode().Perm()))
-}
-
 func collectProfileRecords(rt *Runtime) ([]FileRecord, error) {
 	root := profileDir(rt)
 	var records []FileRecord

@@ -17,6 +17,7 @@ dots init ~/work-dotfiles --profile work
 
 # Track a file or directory under $HOME. With no PATH, add uses the current directory.
 dots add ~/.zshrc
+dots add --dry-run ~/.config/nvim
 dots add ~/.config/nvim
 
 # Preview and apply tracked files back into $HOME.
@@ -28,7 +29,7 @@ dots apply
 ## Commands
 
 - `dots init REPO --profile PROFILE`: initialize config or add one configured profile, then create its profile directory and SQLite tracking databases.
-- `dots add [PATH]`: copy a file or directory from `$HOME` into the active profile and update the profile database. `PATH` defaults to the current directory. Paths inside any configured dots repo are refused.
+- `dots add [--dry-run] [PATH]`: copy a file or directory from `$HOME` into the active profile and update the profile database. `PATH` defaults to the current directory. Paths inside any configured dots repo are refused. `--dry-run` lists the files that would be added without copying files or updating the database.
 - `dots apply [--dry-run] [--force]`: apply tracked profile files back to `$HOME` after a full preflight check. Destinations that already match the profile are left untouched and only recorded in applied state. `--force` backs up conflicting destinations before overwriting.
 - `dots status`: show profile drift, pending changes, destination conflicts, and stale applied state for the active profile.
 - `dots doctor`: run status checks for all configured profiles, or only the overridden profile when `--profile` or `DOTS_PROFILE` is set.
