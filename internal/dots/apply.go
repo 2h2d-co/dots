@@ -59,7 +59,12 @@ func applyProfile(rt *Runtime, opts applyOptions, out io.Writer) error {
 		backupRoot = filepath.Join(rt.StateDir, "backups", rt.Profile, time.Now().UTC().Format("20060102T150405.000000000Z"))
 	}
 
+	writePaths := applyWritePaths(report, opts)
+	copied := 0
 	for _, record := range records {
+		if _, ok := writePaths[record.Path]; !ok {
+			continue
+		}
 		src := repoFilePath(rt, record.Path)
 		dst := destinationPath(rt, record.Path)
 		if opts.Force {
@@ -70,6 +75,7 @@ func applyProfile(rt *Runtime, opts applyOptions, out io.Writer) error {
 		if err := copyFile(src, dst, record.Mode); err != nil {
 			return err
 		}
+		copied++
 	}
 
 	stateDB, err := openStateDB(rt.StateDir, rt.Profile)
@@ -83,7 +89,8 @@ func applyProfile(rt *Runtime, opts applyOptions, out io.Writer) error {
 		return err
 	}
 
-	if _, err := fmt.Fprintf(out, "Apply complete: copied %d file(s) for profile %s\n", len(records), rt.Profile); err != nil {
+	untouched := len(records) - copied
+	if _, err := fmt.Fprintf(out, "Apply complete: copied %d file(s), left %d matching file(s) untouched for profile %s\n", copied, untouched, rt.Profile); err != nil {
 		return err
 	}
 	if backupRoot != "" {
@@ -96,6 +103,24 @@ func applyProfile(rt *Runtime, opts applyOptions, out io.Writer) error {
 		}
 	}
 	return nil
+}
+
+func applyWritePaths(report statusReport, opts applyOptions) map[string]struct{} {
+	paths := make(map[string]struct{})
+	for _, item := range report.Pending {
+		switch item.Kind {
+		case kindPendingCreate, kindPendingUpdate:
+			paths[item.Path] = struct{}{}
+		case kindPendingAdopt, kindPendingState:
+			continue
+		}
+	}
+	if opts.Force {
+		for _, item := range report.Conflict {
+			paths[item.Path] = struct{}{}
+		}
+	}
+	return paths
 }
 
 func writeApplyPlan(out io.Writer, report statusReport, opts applyOptions) error {

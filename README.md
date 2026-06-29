@@ -29,7 +29,7 @@ dots apply
 
 - `dots init REPO --profile PROFILE`: initialize config or add one configured profile, then create its profile directory and SQLite tracking databases.
 - `dots add [PATH]`: copy a file or directory from `$HOME` into the active profile and update the profile database. `PATH` defaults to the current directory. Paths inside any configured dots repo are refused.
-- `dots apply [--dry-run] [--force]`: copy tracked profile files back to `$HOME` after a full preflight check. `--force` backs up conflicting destinations before overwriting.
+- `dots apply [--dry-run] [--force]`: apply tracked profile files back to `$HOME` after a full preflight check. Destinations that already match the profile are left untouched and only recorded in applied state. `--force` backs up conflicting destinations before overwriting.
 - `dots status`: show profile drift, pending changes, destination conflicts, and stale applied state for the active profile.
 - `dots doctor`: run status checks for all configured profiles, or only the overridden profile when `--profile` or `DOTS_PROFILE` is set.
 - `dots list`: list tracked files in the active profile.
@@ -70,6 +70,7 @@ dots apply
 ## Safety and exits
 
 - `dots apply` checks the complete profile before changing any destination file.
+- Destination files that already match the profile are left untouched; apply only refreshes the applied-state database for those paths.
 - Without `--force`, apply exits without changing files when it finds destination conflicts.
 - With `--force`, apply moves conflicting destinations into `${XDG_STATE_HOME:-$HOME/.local/state}/dots/backups/{profile}/...` before overwriting.
 - `dots status` and `dots doctor` exit `0` when clean and `1` when drift, pending changes, conflicts, or stale state need attention.

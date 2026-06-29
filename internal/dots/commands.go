@@ -260,8 +260,8 @@ func (a *App) newApplyCommand() *cobra.Command {
 	var opts applyOptions
 	cmd := &cobra.Command{
 		Use:   "apply",
-		Short: "Preview or copy tracked files to the home directory",
-		Long:  "Preview or copy tracked files from the active profile to the home directory. Apply always performs a full preflight check before changing files; --force backs up conflicting destinations before overwriting them.",
+		Short: "Preview or apply tracked files to the home directory",
+		Long:  "Preview tracked files from the active profile or apply needed changes to the home directory. Apply always performs a full preflight check before changing files; destinations that already match the profile are left untouched and only recorded in applied state. --force backs up conflicting destinations before overwriting them.",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			rt, err := a.resolveRuntime()

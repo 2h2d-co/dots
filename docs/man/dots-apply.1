@@ -2,7 +2,7 @@
 .TH "DOTS" "1" "Jun 2026" "dots dev" "Dots Manual"
 
 .SH NAME
-dots-apply - Preview or copy tracked files to the home directory
+dots-apply - Preview or apply tracked files to the home directory
 
 
 .SH SYNOPSIS
@@ -10,7 +10,7 @@ dots-apply - Preview or copy tracked files to the home directory
 
 
 .SH DESCRIPTION
-Preview or copy tracked files from the active profile to the home directory. Apply always performs a full preflight check before changing files; --force backs up conflicting destinations before overwriting them.
+Preview tracked files from the active profile or apply needed changes to the home directory. Apply always performs a full preflight check before changing files; destinations that already match the profile are left untouched and only recorded in applied state. --force backs up conflicting destinations before overwriting them.
 
 
 .SH OPTIONS
