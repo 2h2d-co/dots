@@ -319,6 +319,20 @@ func TestInitRejectsUnsafeMultiProfileConfig(t *testing.T) {
 		assertContains(t, result.stderr, "already tracked by profile \"personal\"")
 		assertFileMissing(t, filepath.Join(env.state, "dots", "work.db"))
 	})
+
+	t.Run("new repo is inside tracked directory root", func(t *testing.T) {
+		env := newTestEnv(t)
+		trackedRoot := filepath.Join(env.home, ".config", "managed")
+		newRepo := filepath.Join(trackedRoot, "dotfiles")
+		writeFile(t, filepath.Join(trackedRoot, "existing"), "tracked\n", 0o644)
+		env.requireRun("init", env.repo, "--profile", "personal")
+		env.requireRun("add", trackedRoot)
+
+		result := env.run("init", newRepo, "--profile", "work")
+		assertExitCode(t, result, 1)
+		assertContains(t, result.stderr, "already tracked by profile \"personal\"")
+		assertFileMissing(t, filepath.Join(env.state, "dots", "work.db"))
+	})
 }
 
 func TestDotsIgnoreFiltersNestedPaths(t *testing.T) {
@@ -354,6 +368,63 @@ func TestDotsIgnoreFiltersNestedPaths(t *testing.T) {
 	assertNotContains(t, result.stdout, ".config/nestedapp/nested/cache/ignored.txt")
 }
 
+func TestAddStatusGroupsIndividualPathTrackedRootAndNestedRoot(t *testing.T) {
+	env := newTestEnv(t)
+	individual := filepath.Join(env.home, ".zshrc")
+	root := filepath.Join(env.home, ".config", "trackedapp")
+	nestedRoot := filepath.Join(root, "nested")
+	writeFile(t, individual, "shell\n", 0o644)
+	writeFile(t, filepath.Join(root, ".dotsignore"), "*.tmp\n", 0o644)
+	writeFile(t, filepath.Join(root, "initial"), "initial\n", 0o644)
+	writeFile(t, filepath.Join(nestedRoot, ".dotsignore"), "ignored-by-nested\n", 0o644)
+	writeFile(t, filepath.Join(nestedRoot, "initial"), "nested initial\n", 0o644)
+
+	env.requireRun("init", env.repo, "--profile", "personal")
+	env.requireRun("add", individual)
+	env.requireRun("add", root)
+	env.requireRun("add", nestedRoot)
+	env.requireRun("apply")
+
+	if err := os.Remove(individual); err != nil {
+		t.Fatalf("remove individual destination: %v", err)
+	}
+	rootNew := filepath.Join(root, "new")
+	nestedNew := filepath.Join(nestedRoot, "new")
+	writeFile(t, rootNew, "new\n", 0o644)
+	writeFile(t, filepath.Join(root, "ignored.tmp"), "ignored\n", 0o644)
+	writeFile(t, nestedNew, "nested new\n", 0o644)
+	writeFile(t, filepath.Join(nestedRoot, "ignored-by-nested"), "nested ignored\n", 0o644)
+
+	result := env.run("status")
+	assertExitCode(t, result, 1)
+	assertContains(t, result.stdout, "Tracked root: .config/trackedapp")
+	assertContains(t, result.stdout, "untracked destination file: .config/trackedapp/new")
+	assertContains(t, result.stdout, "Tracked root: .config/trackedapp/nested")
+	assertContains(t, result.stdout, "untracked destination file: .config/trackedapp/nested/new")
+	assertContains(t, result.stdout, "Individual paths:")
+	assertContains(t, result.stdout, "will create: .zshrc")
+	assertNotContains(t, result.stdout, ".config/trackedapp/ignored.tmp")
+	assertNotContains(t, result.stdout, ".config/trackedapp/nested/ignored-by-nested")
+	if count := strings.Count(result.stdout, ".config/trackedapp/nested/new"); count != 1 {
+		t.Fatalf("nested root path appeared %d times, want 1\noutput:\n%s", count, result.stdout)
+	}
+
+	env.requireRun("add", rootNew)
+	env.requireRun("add", nestedNew)
+	result = env.run("status")
+	assertExitCode(t, result, 1)
+	assertContains(t, result.stdout, "Tracked root: .config/trackedapp")
+	assertContains(t, result.stdout, "will adopt existing match: .config/trackedapp/new")
+	assertContains(t, result.stdout, "Tracked root: .config/trackedapp/nested")
+	assertContains(t, result.stdout, "will adopt existing match: .config/trackedapp/nested/new")
+	assertContains(t, result.stdout, "Individual paths:")
+	assertContains(t, result.stdout, "will create: .zshrc")
+	assertNotContains(t, result.stdout, "Directory drift:")
+	env.requireRun("apply")
+	result = env.requireRun("status")
+	assertContains(t, result.stdout, "Clean: no changes")
+}
+
 func TestAddDefaultsToCurrentDirectory(t *testing.T) {
 	env := newTestEnv(t)
 	cwdTarget := filepath.Join(env.home, ".config", "cwdapp")
@@ -381,8 +452,11 @@ func TestAddDryRunDoesNotCopyOrTrack(t *testing.T) {
 	env.requireRun("init", env.repo, "--profile", "personal")
 	result := env.requireRun("add", "--dry-run", target)
 	assertContains(t, result.stdout, "Add plan (dry run; no files changed):")
+	assertContains(t, result.stdout, "Directory roots:")
+	assertContains(t, result.stdout, "  .config/dryapp")
 	assertContains(t, result.stdout, "  .config/dryapp/.dotsignore")
 	assertContains(t, result.stdout, "  .config/dryapp/keep")
+	assertContains(t, result.stdout, "Would track 1 directory root(s)")
 	assertContains(t, result.stdout, "Would add 2 file(s) to profile personal")
 	assertNotContains(t, result.stdout, ".config/dryapp/ignored")
 	assertFileMissing(t, filepath.Join(env.repo, "personal", ".config", "dryapp", "keep"))
@@ -391,6 +465,8 @@ func TestAddDryRunDoesNotCopyOrTrack(t *testing.T) {
 	if strings.TrimSpace(result.stdout) != "" {
 		t.Fatalf("list output = %q, want no tracked files after add dry-run", result.stdout)
 	}
+	result = env.requireRun("status")
+	assertContains(t, result.stdout, "Clean: no changes")
 }
 
 func TestAddRejectsConfiguredRepoPaths(t *testing.T) {

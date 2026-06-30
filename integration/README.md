@@ -15,14 +15,14 @@ The suite covers:
 - initialization of config, repo, active profile, profile DB, and state directories
 - multiple configured profiles in one config, including profiles that share a repo and profiles with distinct repos
 - init rejection for duplicate profiles, pre-existing profile databases, overlapping repo roots, and new repos already tracked as home content
-- add with dry-run, current-directory default, and explicit target directory
+- add with dry-run, current-directory default, explicit target directory, individual files, tracked directory roots, and nested tracked directory roots
 - add rejection for symlinks, unsupported file types, paths outside `$HOME`, and paths inside any configured dots repo
 - `.dotsignore` filtering while copying `.dotsignore` itself
 - profile-scoped tracking under top-level repo profile folders
 - repo profile DB SHA-256 cataloging
 - copy-only apply with dry-run, conflict detection, destination type conflicts, force overwrite, and backups
 - last-applied state DB updates
-- status exit codes and drift reporting
+- status exit codes, drift reporting, grouped tracked-root output, individual path output, and new files under tracked directory roots
 - doctor drift checks across all configured profiles and profile overrides
 - list/reindex/forget behavior
 - reindex refusal when a configured git upstream has changes to pull

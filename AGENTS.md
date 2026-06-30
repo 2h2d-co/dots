@@ -67,6 +67,10 @@ If mise config is untrusted in a non-interactive harness, run commands with:
 export MISE_TRUSTED_CONFIG_PATHS=$PWD
 ```
 
+## Commit conventions
+
+- Use Conventional Commits for commit messages, such as `feat: add grouped status output` or `fix: reject unsupported tracked files`.
+
 ## Documentation/metadata
 
 - License: MIT, copyright `Two Humans and Two Dogs LLC (2h2d.co)`.

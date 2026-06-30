@@ -22,6 +22,11 @@ type FileRecord struct {
 	Size   int64
 }
 
+// TrackedDirRecord describes one tracked directory root.
+type TrackedDirRecord struct {
+	Path string
+}
+
 // StateRecord describes one applied regular file.
 type StateRecord struct {
 	Path    string
@@ -98,13 +103,17 @@ func migrateRepoDB(db *sql.DB, profile string) error {
 			size INTEGER NOT NULL,
 			updated_at TEXT NOT NULL
 		)`,
+		`CREATE TABLE IF NOT EXISTS tracked_dirs (
+			path TEXT PRIMARY KEY,
+			updated_at TEXT NOT NULL
+		)`,
 	}
 	for _, statement := range statements {
 		if _, err := db.Exec(statement); err != nil {
 			return fmt.Errorf("migrate repo database: %w", err)
 		}
 	}
-	if _, err := db.Exec(`INSERT INTO meta (key, value) VALUES ('schema_version', '1') ON CONFLICT(key) DO UPDATE SET value = excluded.value`); err != nil {
+	if _, err := db.Exec(`INSERT INTO meta (key, value) VALUES ('schema_version', '2') ON CONFLICT(key) DO UPDATE SET value = excluded.value`); err != nil {
 		return fmt.Errorf("record repo schema version: %w", err)
 	}
 	if _, err := db.Exec(`INSERT INTO meta (key, value) VALUES ('profile', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`, profile); err != nil {
@@ -160,6 +169,27 @@ func listRepoRecords(db *sql.DB) ([]FileRecord, error) {
 	return records, nil
 }
 
+func listTrackedDirs(db *sql.DB) ([]TrackedDirRecord, error) {
+	rows, err := db.Query(`SELECT path FROM tracked_dirs ORDER BY path`)
+	if err != nil {
+		return nil, fmt.Errorf("list tracked directories: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var dirs []TrackedDirRecord
+	for rows.Next() {
+		var dir TrackedDirRecord
+		if err := rows.Scan(&dir.Path); err != nil {
+			return nil, fmt.Errorf("scan tracked directory: %w", err)
+		}
+		dirs = append(dirs, dir)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list tracked directories: %w", err)
+	}
+	return dirs, nil
+}
+
 func listStateRecords(db *sql.DB) ([]StateRecord, error) {
 	rows, err := db.Query(`SELECT path, sha256, repo_sha256, mode, size FROM files ORDER BY path`)
 	if err != nil {
@@ -211,6 +241,37 @@ func upsertRepoRecords(db *sql.DB, records []FileRecord) error {
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit repo update: %w", err)
+	}
+	return nil
+}
+
+func upsertTrackedDirs(db *sql.DB, dirs []TrackedDirRecord) error {
+	if len(dirs) == 0 {
+		return nil
+	}
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("begin tracked directory update: %w", err)
+	}
+	defer rollbackUnlessCommitted(tx)
+
+	statement, err := tx.Prepare(`INSERT INTO tracked_dirs (path, updated_at)
+		VALUES (?, ?)
+		ON CONFLICT(path) DO UPDATE SET
+			updated_at = excluded.updated_at`)
+	if err != nil {
+		return fmt.Errorf("prepare tracked directory update: %w", err)
+	}
+	defer func() { _ = statement.Close() }()
+
+	now := time.Now().UTC().Format(time.RFC3339Nano)
+	for _, dir := range dirs {
+		if _, err := statement.Exec(dir.Path, now); err != nil {
+			return fmt.Errorf("update tracked directory %s: %w", dir.Path, err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit tracked directory update: %w", err)
 	}
 	return nil
 }
@@ -275,6 +336,9 @@ func forgetRecords(repoDB, stateDB *sql.DB, paths []string) error {
 	if err := deleteMatchingRecords(repoDB, paths); err != nil {
 		return err
 	}
+	if err := deleteMatchingTrackedDirs(repoDB, paths); err != nil {
+		return err
+	}
 	if err := deleteMatchingRecords(stateDB, paths); err != nil {
 		return err
 	}
@@ -295,6 +359,24 @@ func deleteMatchingRecords(db *sql.DB, paths []string) error {
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit delete records: %w", err)
+	}
+	return nil
+}
+
+func deleteMatchingTrackedDirs(db *sql.DB, paths []string) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("begin delete tracked directories: %w", err)
+	}
+	defer rollbackUnlessCommitted(tx)
+
+	for _, p := range paths {
+		if _, err := tx.Exec(`DELETE FROM tracked_dirs WHERE path = ? OR path LIKE ?`, p, p+"/%"); err != nil {
+			return fmt.Errorf("delete tracked directories for %s: %w", p, err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit delete tracked directories: %w", err)
 	}
 	return nil
 }

@@ -25,6 +25,15 @@ func TestRepoDBCataloging(t *testing.T) {
 		t.Fatalf("profile metadata = %q, want personal", profile)
 	}
 
+	if err := upsertTrackedDirs(db, []TrackedDirRecord{{Path: "dir/app"}, {Path: "dir"}}); err != nil {
+		t.Fatalf("upsertTrackedDirs() error = %v", err)
+	}
+	dirs, err := listTrackedDirs(db)
+	if err != nil {
+		t.Fatalf("listTrackedDirs() error = %v", err)
+	}
+	assertTrackedDirs(t, dirs, []TrackedDirRecord{{Path: "dir"}, {Path: "dir/app"}})
+
 	initial := []FileRecord{
 		{Path: "b", SHA256: "sha-b", Mode: 0o644, Size: 2},
 		{Path: "a", SHA256: "sha-a", Mode: 0o755, Size: 1},
@@ -62,6 +71,11 @@ func TestRepoDBCataloging(t *testing.T) {
 		t.Fatalf("listRepoRecords(replaced) error = %v", err)
 	}
 	assertFileRecords(t, records, []FileRecord{{Path: "c", SHA256: "sha-c", Mode: 0o700, Size: 4}})
+	dirs, err = listTrackedDirs(db)
+	if err != nil {
+		t.Fatalf("listTrackedDirs(after replace records) error = %v", err)
+	}
+	assertTrackedDirs(t, dirs, []TrackedDirRecord{{Path: "dir"}, {Path: "dir/app"}})
 }
 
 func TestStateDBCatalogingAndForget(t *testing.T) {
@@ -91,6 +105,9 @@ func TestStateDBCatalogingAndForget(t *testing.T) {
 	if err := replaceStateRecords(stateDB, records); err != nil {
 		t.Fatalf("replaceStateRecords() error = %v", err)
 	}
+	if err := upsertTrackedDirs(repoDB, []TrackedDirRecord{{Path: "dir"}, {Path: "keepdir"}}); err != nil {
+		t.Fatalf("upsertTrackedDirs() error = %v", err)
+	}
 
 	stateRecords, err := listStateRecords(stateDB)
 	if err != nil {
@@ -115,6 +132,11 @@ func TestStateDBCatalogingAndForget(t *testing.T) {
 		t.Fatalf("listStateRecords(after forget) error = %v", err)
 	}
 	assertStateRecords(t, stateRecords, []StateRecord{{Path: "keep", SHA256: "sha-keep", RepoSHA: "sha-keep", Mode: 0o755, Size: 6}})
+	dirs, err := listTrackedDirs(repoDB)
+	if err != nil {
+		t.Fatalf("listTrackedDirs(after forget) error = %v", err)
+	}
+	assertTrackedDirs(t, dirs, []TrackedDirRecord{{Path: "keepdir"}})
 }
 
 func assertFileRecords(t *testing.T, got []FileRecord, want []FileRecord) {
@@ -125,6 +147,18 @@ func assertFileRecords(t *testing.T, got []FileRecord, want []FileRecord) {
 	for i := range want {
 		if got[i] != want[i] {
 			t.Fatalf("record[%d] = %+v, want %+v", i, got[i], want[i])
+		}
+	}
+}
+
+func assertTrackedDirs(t *testing.T, got []TrackedDirRecord, want []TrackedDirRecord) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("tracked directory count = %d, want %d; dirs = %+v", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("tracked dir[%d] = %+v, want %+v", i, got[i], want[i])
 		}
 	}
 }

@@ -76,14 +76,15 @@ func TestCollectAddPlanDoesNotCopy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("collectAddPlan() error = %v", err)
 	}
-	records := make([]FileRecord, 0, len(plan))
-	for _, item := range plan {
+	records := make([]FileRecord, 0, len(plan.Items))
+	for _, item := range plan.Items {
 		records = append(records, item.Record)
 	}
 	assertFileRecords(t, records, []FileRecord{
 		testFileRecord(".config/dryapp/.dotsignore", "ignored\n"),
 		testFileRecord(".config/dryapp/keep", "keep\n"),
 	})
+	assertTrackedDirs(t, plan.TrackedDirs, []TrackedDirRecord{{Path: ".config/dryapp"}})
 	if _, err := os.Stat(filepath.Join(repo, "personal", ".config", "dryapp", "keep")); !os.IsNotExist(err) {
 		t.Fatalf("dry-run plan copied repo file, stat err = %v", err)
 	}
@@ -95,8 +96,11 @@ func TestCollectAddPlanDoesNotCopy(t *testing.T) {
 	got := out.String()
 	for _, want := range []string{
 		"Add plan (dry run; no files changed):",
+		"Directory roots:",
+		"  .config/dryapp",
 		"  .config/dryapp/.dotsignore",
 		"  .config/dryapp/keep",
+		"Would track 1 directory root(s)",
 		"Would add 2 file(s) to profile personal",
 	} {
 		if !strings.Contains(got, want) {

@@ -15,7 +15,7 @@ dots init ~/dotfiles --profile personal
 # Add more configured profiles to the same config when needed.
 dots init ~/work-dotfiles --profile work
 
-# Track a file or directory under $HOME. With no PATH, add uses the current directory.
+# Track a file or directory root under $HOME. With no PATH, add uses the current directory.
 dots add ~/.zshrc
 dots add --dry-run ~/.config/nvim
 dots add ~/.config/nvim
@@ -29,9 +29,9 @@ dots apply
 ## Commands
 
 - `dots init REPO --profile PROFILE`: initialize config or add one configured profile, then create its profile directory and SQLite tracking databases.
-- `dots add [--dry-run] [PATH]`: copy a file or directory from `$HOME` into the active profile and update the profile database. `PATH` defaults to the current directory. Paths inside any configured dots repo are refused. `--dry-run` lists the files that would be added without copying files or updating the database.
+- `dots add [--dry-run] [PATH]`: copy a file or directory from `$HOME` into the active profile and update the profile database. Directory adds also record the directory as a tracked root, so future new files under it appear in status. Tracked directory roots may be nested. `PATH` defaults to the current directory. Paths inside any configured dots repo are refused. `--dry-run` lists the files and directory roots that would be added without copying files or updating the database.
 - `dots apply [--dry-run] [--force]`: apply tracked profile files back to `$HOME` after a full preflight check. Destinations that already match the profile are left untouched and only recorded in applied state. `--force` backs up conflicting destinations before overwriting.
-- `dots status`: show profile drift, pending changes, destination conflicts, and stale applied state for the active profile.
+- `dots status`: show profile drift, tracked-directory drift, pending changes, destination conflicts, and stale applied state for the active profile.
 - `dots doctor`: run status checks for all configured profiles, or only the overridden profile when `--profile` or `DOTS_PROFILE` is set.
 - `dots list`: list tracked files in the active profile.
 - `dots reindex`: rebuild the active profile database from current profile files. If the repo has a configured git upstream, reindex refuses to run when the upstream has changes that are not reflected locally.
@@ -56,7 +56,7 @@ dots apply
 
 - `DOTS_PROFILE=PROFILE` and `--profile PROFILE` override the active profile; the flag wins over the environment variable and `default_profile`.
 - Profiles are top-level folders in their configured repo directory.
-- Each profile has a top-level SQLite DB in the repo that catalogs tracked files, file modes, sizes, and SHA-256 sums.
+- Each profile has a top-level SQLite DB in the repo that catalogs tracked files, tracked directory roots, file modes, sizes, and SHA-256 sums.
 - Last applied state is tracked in `${XDG_STATE_HOME:-$HOME/.local/state}/dots/{profile}.db`.
 - `dots add` refuses paths inside any repo configured in the active config.
 
@@ -66,6 +66,8 @@ dots apply
 - Symlinks, other unsupported file types, and paths inside any configured dots repo are rejected.
 - `.dotsignore` in an added directory excludes matching paths from copy/tracking and is itself copied.
 - Ignore patterns from that top-level `.dotsignore` apply to nested paths under the added directory.
+- New destination files under a tracked directory root are reported by `dots status` until they are added or ignored.
+- Tracked directory roots may be nested; status output groups paths by the most specific tracked root, with directly tracked files shown under `Individual paths`.
 - Nested `.dotsignore` files are treated as regular files when they are not ignored; they do not add more ignore rules.
 
 ## Safety and exits
@@ -74,7 +76,7 @@ dots apply
 - Destination files that already match the profile are left untouched; apply only refreshes the applied-state database for those paths.
 - Without `--force`, apply exits without changing files when it finds destination conflicts.
 - With `--force`, apply moves conflicting destinations into `${XDG_STATE_HOME:-$HOME/.local/state}/dots/backups/{profile}/...` before overwriting.
-- `dots status` and `dots doctor` exit `0` when clean and `1` when drift, pending changes, conflicts, or stale state need attention.
+- `dots status` and `dots doctor` exit `0` when clean and `1` when drift, directory drift, pending changes, conflicts, or stale state need attention.
 
 ## Excluded functionality
 

@@ -1,6 +1,7 @@
 package dots
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"path/filepath"
@@ -89,6 +90,76 @@ func TestAnalyzeStatusClassifiesChanges(t *testing.T) {
 	assertStatusItem(t, report.State, kindStaleState, "stale-state")
 }
 
+func TestAnalyzeStatusReportsUntrackedFilesInTrackedDirectories(t *testing.T) {
+	t.Parallel()
+
+	rt := newStatusTestRuntime(t)
+	repoRecords := []FileRecord{
+		writeRepoTrackedFile(t, rt, ".config/app/.dotsignore", "ignored\ncache/\n*.tmp\n"),
+		writeRepoTrackedFile(t, rt, ".config/app/keep", "keep\n"),
+	}
+	writeDestinationFile(t, rt, ".config/app/.dotsignore", "ignored\ncache/\n*.tmp\n")
+	writeDestinationFile(t, rt, ".config/app/keep", "keep\n")
+	writeDestinationFile(t, rt, ".config/app/new", "new\n")
+	writeDestinationFile(t, rt, ".config/app/nested/new", "nested\n")
+	writeDestinationFile(t, rt, ".config/app/ignored", "ignored\n")
+	writeDestinationFile(t, rt, ".config/app/cache/ignored", "cache\n")
+	writeDestinationFile(t, rt, ".config/app/ignored.tmp", "tmp\n")
+	populateStatusDatabases(t, rt, repoRecords, repoRecords)
+	populateTrackedDirs(t, rt, []TrackedDirRecord{{Path: ".config/app"}})
+
+	report, _, err := analyzeStatus(rt)
+	if err != nil {
+		t.Fatalf("analyzeStatus() error = %v", err)
+	}
+
+	assertStatusItem(t, report.Directory, kindDirectoryUntracked, ".config/app/nested/new")
+	assertStatusItem(t, report.Directory, kindDirectoryUntracked, ".config/app/new")
+	assertNoStatusItem(t, report.Directory, kindDirectoryUntracked, ".config/app/ignored")
+	assertNoStatusItem(t, report.Directory, kindDirectoryUntracked, ".config/app/cache/ignored")
+	assertNoStatusItem(t, report.Directory, kindDirectoryUntracked, ".config/app/ignored.tmp")
+}
+
+func TestWriteStatusReportGroupsByMostSpecificTrackedRoot(t *testing.T) {
+	t.Parallel()
+
+	report := statusReport{
+		Profile: "personal",
+		TrackedDirs: []TrackedDirRecord{
+			{Path: ".config/nvim"},
+			{Path: ".config"},
+		},
+		Directory: []statusItem{
+			{Kind: kindDirectoryUntracked, Path: ".config/nvim/lua/new"},
+			{Kind: kindDirectoryUntracked, Path: ".config/alacritty/new"},
+		},
+		Pending: []statusItem{{Kind: kindPendingCreate, Path: ".zshrc"}},
+	}
+	report.sort()
+
+	var out bytes.Buffer
+	if err := writeStatusReport(&out, report); err != nil {
+		t.Fatalf("writeStatusReport() error = %v", err)
+	}
+	want := "Profile: personal\n" +
+		"Status: changes require attention\n" +
+		"\n" +
+		"Tracked root: .config\n" +
+		"  Directory drift:\n" +
+		"    untracked destination file: .config/alacritty/new\n" +
+		"\n" +
+		"Tracked root: .config/nvim\n" +
+		"  Directory drift:\n" +
+		"    untracked destination file: .config/nvim/lua/new\n" +
+		"\n" +
+		"Individual paths:\n" +
+		"  Pending changes:\n" +
+		"    will create: .zshrc\n"
+	if out.String() != want {
+		t.Fatalf("writeStatusReport() = %q, want %q", out.String(), want)
+	}
+}
+
 func TestAnalyzeStatusReturnsDestinationPermissionError(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("permission errors are not reliable when running as root")
@@ -160,6 +231,20 @@ func populateStatusDatabases(t *testing.T, rt *Runtime, repoRecords []FileRecord
 	}
 }
 
+func populateTrackedDirs(t *testing.T, rt *Runtime, dirs []TrackedDirRecord) {
+	t.Helper()
+	repoDB, err := openRepoDB(rt.Repo, rt.Profile)
+	if err != nil {
+		t.Fatalf("openRepoDB() error = %v", err)
+	}
+	if err := upsertTrackedDirs(repoDB, dirs); err != nil {
+		t.Fatalf("upsertTrackedDirs() error = %v", errors.Join(err, repoDB.Close()))
+	}
+	if err := repoDB.Close(); err != nil {
+		t.Fatalf("close repo database: %v", err)
+	}
+}
+
 func testFileRecord(path string, content string) FileRecord {
 	return FileRecord{
 		Path:   path,
@@ -177,4 +262,13 @@ func assertStatusItem(t *testing.T, items []statusItem, kind statusKind, path st
 		}
 	}
 	t.Fatalf("status item %s: %s not found in %+v", kind, path, items)
+}
+
+func assertNoStatusItem(t *testing.T, items []statusItem, kind statusKind, path string) {
+	t.Helper()
+	for _, item := range items {
+		if item.Kind == kind && item.Path == path {
+			t.Fatalf("status item %s: %s unexpectedly found in %+v", kind, path, items)
+		}
+	}
 }

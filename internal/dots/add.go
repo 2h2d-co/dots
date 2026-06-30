@@ -10,6 +10,11 @@ import (
 	"sort"
 )
 
+type addPlan struct {
+	Items       []addPlanItem
+	TrackedDirs []TrackedDirRecord
+}
+
 type addPlanItem struct {
 	Source string
 	Record FileRecord
@@ -20,54 +25,55 @@ func addPath(rt *Runtime, target string) ([]FileRecord, error) {
 	if err != nil {
 		return nil, err
 	}
-	return executeAddPlan(rt, plan)
+	return executeAddPlan(rt, plan.Items)
 }
 
-func collectAddPlan(rt *Runtime, target string) ([]addPlanItem, error) {
+func collectAddPlan(rt *Runtime, target string) (addPlan, error) {
 	expanded, err := expandPath(target)
 	if err != nil {
-		return nil, err
+		return addPlan{}, err
 	}
 	absTarget, err := filepath.Abs(expanded)
 	if err != nil {
-		return nil, fmt.Errorf("resolve target path: %w", err)
+		return addPlan{}, fmt.Errorf("resolve target path: %w", err)
 	}
 	if err := rejectRepoTarget(rt, absTarget); err != nil {
-		return nil, err
+		return addPlan{}, err
 	}
 	info, err := os.Lstat(absTarget)
 	if err != nil {
-		return nil, fmt.Errorf("stat target %s: %w", absTarget, err)
+		return addPlan{}, fmt.Errorf("stat target %s: %w", absTarget, err)
 	}
 	if info.Mode()&os.ModeSymlink != 0 {
-		return nil, fmt.Errorf("refusing to track symlink: %s", absTarget)
+		return addPlan{}, fmt.Errorf("refusing to track symlink: %s", absTarget)
 	}
 	if !info.Mode().IsRegular() && !info.IsDir() {
-		return nil, fmt.Errorf("unsupported file type: %s", absTarget)
+		return addPlan{}, fmt.Errorf("unsupported file type: %s", absTarget)
 	}
 
 	if !info.IsDir() {
 		trackedPath, err := homeRelativePath(rt.Home, absTarget)
 		if err != nil {
-			return nil, err
+			return addPlan{}, err
 		}
 		item, err := newAddPlanItem(absTarget, trackedPath, info)
 		if err != nil {
-			return nil, err
+			return addPlan{}, err
 		}
-		return []addPlanItem{item}, nil
+		return addPlan{Items: []addPlanItem{item}}, nil
 	}
 
-	if _, err := homeRelativePath(rt.Home, absTarget); err != nil {
-		return nil, err
+	trackedRoot, err := homeRelativePath(rt.Home, absTarget)
+	if err != nil {
+		return addPlan{}, err
 	}
 
 	matcher, err := loadDotsIgnore(filepath.Join(absTarget, ".dotsignore"))
 	if err != nil {
-		return nil, fmt.Errorf("load .dotsignore: %w", err)
+		return addPlan{}, fmt.Errorf("load .dotsignore: %w", err)
 	}
 
-	var plan []addPlanItem
+	var items []addPlanItem
 	if err := filepath.WalkDir(absTarget, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -107,15 +113,18 @@ func collectAddPlan(rt *Runtime, target string) ([]addPlanItem, error) {
 		if err != nil {
 			return err
 		}
-		plan = append(plan, item)
+		items = append(items, item)
 		return nil
 	}); err != nil {
-		return nil, fmt.Errorf("add directory %s: %w", absTarget, err)
+		return addPlan{}, fmt.Errorf("add directory %s: %w", absTarget, err)
 	}
-	sort.Slice(plan, func(i, j int) bool {
-		return plan[i].Record.Path < plan[j].Record.Path
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].Record.Path < items[j].Record.Path
 	})
-	return plan, nil
+	return addPlan{
+		Items:       items,
+		TrackedDirs: []TrackedDirRecord{{Path: trackedRoot}},
+	}, nil
 }
 
 func rejectRepoTarget(rt *Runtime, target string) error {
@@ -167,16 +176,36 @@ func executeAddPlan(rt *Runtime, plan []addPlanItem) ([]FileRecord, error) {
 	return records, nil
 }
 
-func writeAddPlan(out io.Writer, rt *Runtime, plan []addPlanItem) error {
+func writeAddPlan(out io.Writer, rt *Runtime, plan addPlan) error {
 	if _, err := fmt.Fprintln(out, "Add plan (dry run; no files changed):"); err != nil {
 		return err
 	}
-	for _, item := range plan {
+	if len(plan.TrackedDirs) > 0 {
+		if _, err := fmt.Fprintln(out, "Directory roots:"); err != nil {
+			return err
+		}
+		for _, dir := range plan.TrackedDirs {
+			if _, err := fmt.Fprintf(out, "  %s\n", dir.Path); err != nil {
+				return err
+			}
+		}
+	}
+	if len(plan.Items) > 0 && len(plan.TrackedDirs) > 0 {
+		if _, err := fmt.Fprintln(out, "Files:"); err != nil {
+			return err
+		}
+	}
+	for _, item := range plan.Items {
 		if _, err := fmt.Fprintf(out, "  %s\n", item.Record.Path); err != nil {
 			return err
 		}
 	}
-	_, err := fmt.Fprintf(out, "Would add %d file(s) to profile %s\n", len(plan), rt.Profile)
+	if len(plan.TrackedDirs) > 0 {
+		if _, err := fmt.Fprintf(out, "Would track %d directory root(s)\n", len(plan.TrackedDirs)); err != nil {
+			return err
+		}
+	}
+	_, err := fmt.Fprintf(out, "Would add %d file(s) to profile %s\n", len(plan.Items), rt.Profile)
 	return err
 }
 

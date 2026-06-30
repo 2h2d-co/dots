@@ -166,6 +166,10 @@ func rejectTrackedRepoDestination(repo, home string, profiles map[string]Runtime
 		if err != nil {
 			return errors.Join(err, repoDB.Close())
 		}
+		trackedDirs, err := listTrackedDirs(repoDB)
+		if err != nil {
+			return errors.Join(err, repoDB.Close())
+		}
 		if err := repoDB.Close(); err != nil {
 			return err
 		}
@@ -173,6 +177,11 @@ func rejectTrackedRepoDestination(repo, home string, profiles map[string]Runtime
 		for _, record := range records {
 			if trackedPathInsideRoot(repoRoot, record.Path) {
 				return fmt.Errorf("repo %s is already tracked by profile %q as %s", repo, profile, record.Path)
+			}
+		}
+		for _, dir := range trackedDirs {
+			if trackedPathInsideRoot(repoRoot, dir.Path) || trackedPathInsideRoot(dir.Path, repoRoot) {
+				return fmt.Errorf("repo %s is already tracked by profile %q as %s", repo, profile, dir.Path)
 			}
 		}
 	}
@@ -226,7 +235,7 @@ func (a *App) newAddCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add [PATH]",
 		Short: "Copy a file or directory into the active profile",
-		Long:  "Copy a file or directory from the home directory into the active profile and update the profile tracking database. PATH defaults to the current directory. Paths inside any configured dots repo are refused. --dry-run lists the files that would be added without copying files or updating the database.",
+		Long:  "Copy a file or directory from the home directory into the active profile and update the profile tracking database. Directory adds also record the directory as a tracked root so future new files under it appear in status. Tracked directory roots may be nested. PATH defaults to the current directory. Paths inside any configured dots repo are refused. --dry-run lists the files and directory roots that would be added without copying files or updating the database.",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			target, err := targetOrCurrent(args)
@@ -244,7 +253,7 @@ func (a *App) newAddCommand() *cobra.Command {
 			if dryRun {
 				return writeAddPlan(cmd.OutOrStdout(), rt, plan)
 			}
-			records, err := executeAddPlan(rt, plan)
+			records, err := executeAddPlan(rt, plan.Items)
 			if err != nil {
 				return err
 			}
@@ -255,11 +264,20 @@ func (a *App) newAddCommand() *cobra.Command {
 			if err := upsertRepoRecords(repoDB, records); err != nil {
 				return errors.Join(err, repoDB.Close())
 			}
+			if err := upsertTrackedDirs(repoDB, plan.TrackedDirs); err != nil {
+				return errors.Join(err, repoDB.Close())
+			}
 			if err := repoDB.Close(); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Added %d file(s) to profile %s\n", len(records), rt.Profile)
-			return err
+			if _, err := fmt.Fprintf(cmd.OutOrStdout(), "Added %d file(s) to profile %s\n", len(records), rt.Profile); err != nil {
+				return err
+			}
+			if len(plan.TrackedDirs) > 0 {
+				_, err = fmt.Fprintf(cmd.OutOrStdout(), "Tracked %d directory root(s) in profile %s\n", len(plan.TrackedDirs), rt.Profile)
+				return err
+			}
+			return nil
 		},
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would be added without changing files")
@@ -289,8 +307,8 @@ func (a *App) newApplyCommand() *cobra.Command {
 func (a *App) newStatusCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
-		Short: "Show profile drift, pending changes, and conflicts",
-		Long:  "Compare the active profile database, profile files, applied-state database, and home-directory destination files. A clean status exits 0; drift, pending changes, conflicts, or stale state exit 1.",
+		Short: "Show profile drift, directory drift, pending changes, and conflicts",
+		Long:  "Compare the active profile database, profile files, tracked directory roots, applied-state database, and home-directory destination files. When tracked roots are present, status output groups paths by the most specific tracked root and reports directly tracked files under Individual paths. A clean status exits 0; drift, pending changes, conflicts, directory drift, or stale state exit 1.",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			rt, err := a.resolveRuntime()

@@ -2,7 +2,7 @@
 .TH "DOTS" "1" "Jun 2026" "dots dev" "Dots Manual"
 
 .SH NAME
-dots-status - Show profile drift, pending changes, and conflicts
+dots-status - Show profile drift, directory drift, pending changes, and conflicts
 
 
 .SH SYNOPSIS
@@ -10,7 +10,7 @@ dots-status - Show profile drift, pending changes, and conflicts
 
 
 .SH DESCRIPTION
-Compare the active profile database, profile files, applied-state database, and home-directory destination files. A clean status exits 0; drift, pending changes, conflicts, or stale state exit 1.
+Compare the active profile database, profile files, tracked directory roots, applied-state database, and home-directory destination files. When tracked roots are present, status output groups paths by the most specific tracked root and reports directly tracked files under Individual paths. A clean status exits 0; drift, pending changes, conflicts, directory drift, or stale state exit 1.
 
 
 .SH OPTIONS
