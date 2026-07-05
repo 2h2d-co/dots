@@ -1,18 +1,28 @@
 package dots
 
 import (
+	"context"
 	"database/sql"
+	"embed"
 	"errors"
 	"fmt"
+	"io/fs"
 	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/pressly/goose/v3"
 	_ "modernc.org/sqlite" // Register the SQLite database/sql driver.
 )
 
-const sqliteDriver = "sqlite"
+const (
+	sqliteDriver          = "sqlite"
+	schemaMigrationsTable = "dots_schema_migrations"
+)
+
+//go:embed migrations/repo/*.sql migrations/state/*.sql
+var migrationFiles embed.FS
 
 // FileRecord describes one tracked regular file.
 type FileRecord struct {
@@ -94,56 +104,61 @@ func openSQLite(path string) (*sql.DB, error) {
 }
 
 func migrateRepoDB(db *sql.DB, profile string) error {
-	statements := []string{
-		`CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)`,
-		`CREATE TABLE IF NOT EXISTS files (
-			path TEXT PRIMARY KEY,
-			sha256 TEXT NOT NULL,
-			mode INTEGER NOT NULL,
-			size INTEGER NOT NULL,
-			updated_at TEXT NOT NULL
-		)`,
-		`CREATE TABLE IF NOT EXISTS tracked_dirs (
-			path TEXT PRIMARY KEY,
-			updated_at TEXT NOT NULL
-		)`,
+	if err := runMigrations(db, "migrations/repo"); err != nil {
+		return fmt.Errorf("migrate repo database: %w", err)
 	}
-	for _, statement := range statements {
-		if _, err := db.Exec(statement); err != nil {
-			return fmt.Errorf("migrate repo database: %w", err)
-		}
-	}
-	if _, err := db.Exec(`INSERT INTO meta (key, value) VALUES ('schema_version', '2') ON CONFLICT(key) DO UPDATE SET value = excluded.value`); err != nil {
-		return fmt.Errorf("record repo schema version: %w", err)
-	}
-	if _, err := db.Exec(`INSERT INTO meta (key, value) VALUES ('profile', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`, profile); err != nil {
-		return fmt.Errorf("record repo profile: %w", err)
+	if err := ensureProfileMetadata(db, profile); err != nil {
+		return fmt.Errorf("validate repo profile metadata: %w", err)
 	}
 	return nil
 }
 
 func migrateStateDB(db *sql.DB, profile string) error {
-	statements := []string{
-		`CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)`,
-		`CREATE TABLE IF NOT EXISTS files (
-			path TEXT PRIMARY KEY,
-			sha256 TEXT NOT NULL,
-			repo_sha256 TEXT NOT NULL,
-			mode INTEGER NOT NULL,
-			size INTEGER NOT NULL,
-			applied_at TEXT NOT NULL
-		)`,
+	if err := runMigrations(db, "migrations/state"); err != nil {
+		return fmt.Errorf("migrate state database: %w", err)
 	}
-	for _, statement := range statements {
-		if _, err := db.Exec(statement); err != nil {
-			return fmt.Errorf("migrate state database: %w", err)
+	if err := ensureProfileMetadata(db, profile); err != nil {
+		return fmt.Errorf("validate state profile metadata: %w", err)
+	}
+	return nil
+}
+
+func runMigrations(db *sql.DB, path string) error {
+	migrations, err := fs.Sub(migrationFiles, path)
+	if err != nil {
+		return fmt.Errorf("load sqlite migrations %s: %w", path, err)
+	}
+	provider, err := goose.NewProvider(
+		goose.DialectSQLite3,
+		db,
+		migrations,
+		goose.WithTableName(schemaMigrationsTable),
+		goose.WithLogger(goose.NopLogger()),
+		goose.WithDisableGlobalRegistry(true),
+	)
+	if err != nil {
+		return fmt.Errorf("prepare sqlite migrations %s: %w", path, err)
+	}
+	if _, err := provider.Up(context.Background()); err != nil {
+		return fmt.Errorf("run sqlite migrations %s: %w", path, err)
+	}
+	return nil
+}
+
+func ensureProfileMetadata(db *sql.DB, profile string) error {
+	var existing string
+	err := db.QueryRow(`SELECT value FROM meta WHERE key = 'profile'`).Scan(&existing)
+	if errors.Is(err, sql.ErrNoRows) {
+		if _, err := db.Exec(`INSERT INTO meta (key, value) VALUES ('profile', ?)`, profile); err != nil {
+			return fmt.Errorf("record profile metadata: %w", err)
 		}
+		return nil
 	}
-	if _, err := db.Exec(`INSERT INTO meta (key, value) VALUES ('schema_version', '1') ON CONFLICT(key) DO UPDATE SET value = excluded.value`); err != nil {
-		return fmt.Errorf("record state schema version: %w", err)
+	if err != nil {
+		return fmt.Errorf("read profile metadata: %w", err)
 	}
-	if _, err := db.Exec(`INSERT INTO meta (key, value) VALUES ('profile', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`, profile); err != nil {
-		return fmt.Errorf("record state profile: %w", err)
+	if existing != profile {
+		return fmt.Errorf("database belongs to profile %q, not %q", existing, profile)
 	}
 	return nil
 }

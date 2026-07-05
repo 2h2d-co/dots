@@ -5,6 +5,7 @@ package integration
 
 import (
 	"bytes"
+	"database/sql"
 	"errors"
 	"fmt"
 	"os"
@@ -14,6 +15,8 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+
+	_ "modernc.org/sqlite" // Register SQLite driver for integration test database fixtures.
 )
 
 var dotsBin string
@@ -251,6 +254,63 @@ func TestMultipleProfilesInSingleConfig(t *testing.T) {
 	assertNotContains(t, result.stdout, "Profile: laptop")
 }
 
+func TestDatabaseMigrationsFromScratchAndAlreadyCurrent(t *testing.T) {
+	env := newTestEnv(t)
+	env.requireRun("init", env.repo, "--profile", "personal")
+
+	repoDB := filepath.Join(env.repo, "personal.db")
+	stateDB := filepath.Join(env.state, "dots", "personal.db")
+	assertSQLiteMigrationVersion(t, repoDB, 2)
+	assertSQLiteMigrationVersion(t, stateDB, 1)
+
+	env.requireRun("status")
+	assertSQLiteMigrationVersion(t, repoDB, 2)
+	assertSQLiteMigrationVersion(t, stateDB, 1)
+}
+
+func TestDatabaseMigrationsFromLegacyRepoV1(t *testing.T) {
+	env := newTestEnv(t)
+	writePersonalConfig(t, env)
+	if err := os.MkdirAll(filepath.Join(env.repo, "personal"), 0o750); err != nil {
+		t.Fatalf("create profile directory: %v", err)
+	}
+	createLegacyPersonalRepoDB(t, filepath.Join(env.repo, "personal.db"), 1, nil)
+	createLegacyPersonalStateDB(t, filepath.Join(env.state, "dots", "personal.db"))
+
+	env.requireRun("status")
+	assertSQLiteMigrationVersion(t, filepath.Join(env.repo, "personal.db"), 2)
+	assertSQLiteMigrationVersion(t, filepath.Join(env.state, "dots", "personal.db"), 1)
+}
+
+func TestDatabaseMigrationsStampLegacyRepoV2WithoutGooseTracking(t *testing.T) {
+	env := newTestEnv(t)
+	writePersonalConfig(t, env)
+	if err := os.MkdirAll(filepath.Join(env.repo, "personal"), 0o750); err != nil {
+		t.Fatalf("create profile directory: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(env.home, ".config", "legacy"), 0o750); err != nil {
+		t.Fatalf("create tracked destination directory: %v", err)
+	}
+
+	repoDB := filepath.Join(env.repo, "personal.db")
+	stateDB := filepath.Join(env.state, "dots", "personal.db")
+	createLegacyPersonalRepoDB(t, repoDB, 2, []string{".config/legacy"})
+	createLegacyPersonalStateDB(t, stateDB)
+
+	env.requireRun("status")
+	assertSQLiteMigrationVersion(t, repoDB, 2)
+	assertSQLiteMigrationVersion(t, stateDB, 1)
+	withSQLiteDatabase(t, repoDB, func(db *sql.DB) {
+		var trackedDir string
+		if err := db.QueryRow(`SELECT path FROM tracked_dirs WHERE path = '.config/legacy'`).Scan(&trackedDir); err != nil {
+			t.Fatalf("read tracked directory: %v", err)
+		}
+		if trackedDir != ".config/legacy" {
+			t.Fatalf("tracked directory = %q, want .config/legacy", trackedDir)
+		}
+	})
+}
+
 func TestInitRejectsUnsafeMultiProfileConfig(t *testing.T) {
 	t.Run("existing profile", func(t *testing.T) {
 		env := newTestEnv(t)
@@ -440,6 +500,18 @@ func TestAddDefaultsToCurrentDirectory(t *testing.T) {
 	result = env.requireRun("list")
 	assertContains(t, result.stdout, ".config/cwdapp/settings.toml")
 	assertContains(t, result.stdout, ".config/cwdapp/nested/tool")
+}
+
+func TestAddFailsBeforeCopyWhenRepoMigrationValidationFails(t *testing.T) {
+	env := newTestEnv(t)
+	env.requireRun("init", env.repo, "--profile", "personal")
+	writeFile(t, filepath.Join(env.home, ".blockedrc"), "blocked\n", 0o644)
+	setSQLiteProfileMetadata(t, filepath.Join(env.repo, "personal.db"), "work")
+
+	result := env.run("add", filepath.Join(env.home, ".blockedrc"))
+	assertExitCode(t, result, 1)
+	assertContains(t, result.stderr, `database belongs to profile "work", not "personal"`)
+	assertFileMissing(t, filepath.Join(env.repo, "personal", ".blockedrc"))
 }
 
 func TestAddDryRunDoesNotCopyOrTrack(t *testing.T) {
@@ -756,6 +828,103 @@ func runGit(t *testing.T, dir string, args ...string) {
 	}
 }
 
+func writePersonalConfig(t *testing.T, env testEnv) {
+	t.Helper()
+	content := fmt.Sprintf("default_profile = \"personal\"\n\n[profiles]\npersonal = %q\n", env.repo)
+	writeFile(t, filepath.Join(env.config, "dots", "config.toml"), content, 0o600)
+}
+
+func createLegacyPersonalRepoDB(t *testing.T, path string, schemaVersion int, trackedDirs []string) {
+	t.Helper()
+	withSQLiteDatabase(t, path, func(db *sql.DB) {
+		execSQL := func(query string, args ...any) {
+			t.Helper()
+			if _, err := db.Exec(query, args...); err != nil {
+				t.Fatalf("execute legacy repo SQL: %v", err)
+			}
+		}
+
+		execSQL(`CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)`)
+		execSQL(`INSERT INTO meta (key, value) VALUES ('profile', 'personal')`)
+		execSQL(`INSERT INTO meta (key, value) VALUES ('schema_version', ?)`, fmt.Sprintf("%d", schemaVersion))
+		execSQL(`CREATE TABLE files (
+			path TEXT PRIMARY KEY,
+			sha256 TEXT NOT NULL,
+			mode INTEGER NOT NULL,
+			size INTEGER NOT NULL,
+			updated_at TEXT NOT NULL
+		)`)
+		switch schemaVersion {
+		case 1:
+			return
+		case 2:
+			execSQL(`CREATE TABLE tracked_dirs (
+				path TEXT PRIMARY KEY,
+				updated_at TEXT NOT NULL
+			)`)
+			for _, trackedDir := range trackedDirs {
+				execSQL(`INSERT INTO tracked_dirs (path, updated_at) VALUES (?, 'legacy')`, trackedDir)
+			}
+		default:
+			t.Fatalf("unsupported legacy repo schema version: %d", schemaVersion)
+		}
+	})
+}
+
+func createLegacyPersonalStateDB(t *testing.T, path string) {
+	t.Helper()
+	withSQLiteDatabase(t, path, func(db *sql.DB) {
+		execSQL := func(query string, args ...any) {
+			t.Helper()
+			if _, err := db.Exec(query, args...); err != nil {
+				t.Fatalf("execute legacy state SQL: %v", err)
+			}
+		}
+
+		execSQL(`CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)`)
+		execSQL(`INSERT INTO meta (key, value) VALUES ('profile', 'personal')`)
+		execSQL(`INSERT INTO meta (key, value) VALUES ('schema_version', '1')`)
+		execSQL(`CREATE TABLE files (
+			path TEXT PRIMARY KEY,
+			sha256 TEXT NOT NULL,
+			repo_sha256 TEXT NOT NULL,
+			mode INTEGER NOT NULL,
+			size INTEGER NOT NULL,
+			applied_at TEXT NOT NULL
+		)`)
+	})
+}
+
+func assertSQLiteMigrationVersion(t *testing.T, path string, want int64) {
+	t.Helper()
+	withSQLiteDatabase(t, path, func(db *sql.DB) {
+		var got int64
+		if err := db.QueryRow(`SELECT MAX(version_id) FROM dots_schema_migrations`).Scan(&got); err != nil {
+			t.Fatalf("read migration version from %s: %v", path, err)
+		}
+		if got != want {
+			t.Fatalf("migration version for %s = %d, want %d", path, got, want)
+		}
+	})
+}
+
+func withSQLiteDatabase(t *testing.T, path string, fn func(*sql.DB)) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+		t.Fatalf("create sqlite parent directory: %v", err)
+	}
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatalf("open sqlite database: %v", err)
+	}
+	defer func() {
+		if err := db.Close(); err != nil {
+			t.Fatalf("close sqlite database: %v", err)
+		}
+	}()
+	fn(db)
+}
+
 func writeFile(t *testing.T, path string, content string, mode os.FileMode) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
@@ -764,6 +933,15 @@ func writeFile(t *testing.T, path string, content string, mode os.FileMode) {
 	if err := os.WriteFile(path, []byte(content), mode); err != nil {
 		t.Fatalf("write %s: %v", path, err)
 	}
+}
+
+func setSQLiteProfileMetadata(t *testing.T, path, profile string) {
+	t.Helper()
+	withSQLiteDatabase(t, path, func(db *sql.DB) {
+		if _, err := db.Exec(`UPDATE meta SET value = ? WHERE key = 'profile'`, profile); err != nil {
+			t.Fatalf("update profile metadata: %v", err)
+		}
+	})
 }
 
 func assertExitCode(t *testing.T, result runResult, want int) {

@@ -253,13 +253,13 @@ func (a *App) newAddCommand() *cobra.Command {
 			if dryRun {
 				return writeAddPlan(cmd.OutOrStdout(), rt, plan)
 			}
-			records, err := executeAddPlan(rt, plan.Items)
-			if err != nil {
-				return err
-			}
 			repoDB, err := openRepoDB(rt.Repo, rt.Profile)
 			if err != nil {
 				return err
+			}
+			records, err := executeAddPlan(rt, plan.Items)
+			if err != nil {
+				return errors.Join(err, repoDB.Close())
 			}
 			if err := upsertRepoRecords(repoDB, records); err != nil {
 				return errors.Join(err, repoDB.Close())

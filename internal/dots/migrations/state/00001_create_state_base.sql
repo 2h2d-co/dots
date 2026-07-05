@@ -1,0 +1,18 @@
+-- +goose Up
+CREATE TABLE IF NOT EXISTS meta (
+	key TEXT PRIMARY KEY,
+	value TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS files (
+	path TEXT PRIMARY KEY,
+	sha256 TEXT NOT NULL,
+	repo_sha256 TEXT NOT NULL,
+	mode INTEGER NOT NULL,
+	size INTEGER NOT NULL,
+	applied_at TEXT NOT NULL
+);
+
+-- +goose Down
+DROP TABLE files;
+DROP TABLE meta;

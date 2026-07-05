@@ -27,6 +27,7 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) st
 - Changed `dots init` to add a new configured profile to an existing config, while refusing duplicate profile names and pre-existing profile repo/state databases.
 - Changed `dots doctor` to check all configured profiles across configured repos unless a profile override is set.
 - Changed the release workflow to attest `checksums.txt` alongside release archives.
+- Changed repo and state database setup to use embedded `pressly/goose` SQLite migrations and reject databases with mismatched profile metadata.
 
 ### Security
 
