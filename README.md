@@ -26,6 +26,11 @@ dots diff
 dots diff | hunk patch -
 dots apply --dry-run
 dots apply
+
+# After editing files in $HOME, record allowed destination changes back into the profile.
+dots diff --sync
+dots sync --dry-run
+dots sync
 ```
 
 ## Commands
@@ -33,7 +38,8 @@ dots apply
 - `dots init REPO --profile PROFILE`: initialize config or add one configured profile, then create its profile directory and SQLite tracking databases.
 - `dots add [--dry-run] [PATH]`: copy a file or directory from `$HOME` into the active profile and update the profile and applied-state databases for the added files. Directory adds also record the directory as a tracked root, so future new files under it appear in status. Tracked directory roots may be nested. `PATH` defaults to the current directory. Paths inside any configured dots repo are refused. `--dry-run` lists the files and directory roots that would be added without copying files or updating the database.
 - `dots apply [--dry-run] [--force]`: apply tracked profile files back to `$HOME` after a full preflight check. Destinations that already match the profile are left untouched and only recorded in applied state. `--force` backs up conflicting destinations before overwriting.
-- `dots diff [--sync] [--no-pager]`: print a git-style unified diff for what `dots apply --force` would change. `--sync` previews the future home-to-repo sync direction. Patch text goes to stdout; notes and refusals go to stderr so output can be piped to tools such as `hunk`.
+- `dots sync [--dry-run] [--force]`: copy destination changes and new files under tracked roots back into the active profile, refreshing applied state for files it records. Plain sync refuses destination/profile conflicts; `--force` backs up conflicting repo files and takes the destination side.
+- `dots diff [--sync] [--no-pager]`: print a git-style unified diff for what `dots apply --force` would change. `--sync` previews what `dots sync --force` would change. Patch text goes to stdout; notes and refusals go to stderr so output can be piped to tools such as `hunk`.
 - `dots status`: show profile drift, tracked-directory drift, pending changes, destination conflicts, and stale applied state for the active profile.
 - `dots doctor`: run status checks for all configured profiles, or only the overridden profile when `--profile` or `DOTS_PROFILE` is set.
 - `dots list`: list tracked files in the active profile.
@@ -72,16 +78,18 @@ dots apply
 - Symlinks, other unsupported file types, and paths inside any configured dots repo are rejected.
 - `.dotsignore` in an added directory excludes matching paths from copy/tracking and is itself copied.
 - Ignore patterns from that top-level `.dotsignore` apply to nested paths under the added directory.
-- New destination files under a tracked directory root are reported by `dots status` until they are added or ignored.
+- New destination files under a tracked directory root are reported by `dots status` until they are synced, added directly, or ignored.
 - Tracked directory roots may be nested; status output groups paths by the most specific tracked root, with directly tracked files shown under `Individual paths`.
 - Nested `.dotsignore` files are treated as regular files when they are not ignored; they do not add more ignore rules.
+- `dots sync` never deletes profile files for missing destinations; use `dots forget` explicitly when tracking should stop.
 
 ## Safety and exits
 
 - `dots apply` checks the complete profile before changing any destination file.
 - Destination files that already match the profile are left untouched; apply only refreshes the applied-state database for those paths.
 - Without `--force`, apply exits without changing files when it finds destination conflicts.
-- With `--force`, apply moves conflicting destinations into `${XDG_STATE_HOME:-$HOME/.local/state}/dots/backups/{profile}/...` before overwriting.
+- With `--force`, apply moves conflicting destinations into `${XDG_STATE_HOME:-$HOME/.local/state}/dots/backups/{profile}/{SET}/home/{ENTRY}/payload` before overwriting. Sync uses the same backup sets under `repo/{ENTRY}/payload` for conflicting repo files.
+- `dots sync` checks the complete profile before changing repo files. Without `--force`, it exits without changing files when destination/profile conflicts need an explicit side choice. Real sync runs also refuse when a configured git upstream has changes to pull; `--dry-run` stays local-only.
 - `dots diff` is read-only. It exits `0` when it has no patchable differences or notes, and `1` when it prints a patch, emits an excluded-conflict note, or refuses because profile files drifted from the tracking database.
 - `dots status` and `dots doctor` exit `0` when clean and `1` when drift, directory drift, pending changes, conflicts, or stale state need attention.
 

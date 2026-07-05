@@ -47,6 +47,8 @@ Maintain integration-test coverage for this command surface:
 - `dots add [PATH]`
 - `dots apply --dry-run`
 - `dots apply --force` with backups before overwrite
+- `dots sync --dry-run`
+- `dots sync --force`
 - `dots status`
 - `dots doctor`
 - `dots list`

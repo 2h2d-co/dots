@@ -2,28 +2,28 @@
 .TH "DOTS" "1" "Jul 2026" "dots dev" "Dots Manual"
 
 .SH NAME
-dots-apply - Preview or apply tracked files to the home directory
+dots-sync - Copy changed home files back into the active profile
 
 
 .SH SYNOPSIS
-\fBdots apply [flags]\fP
+\fBdots sync [flags]\fP
 
 
 .SH DESCRIPTION
-Preview tracked files from the active profile or apply needed changes to the home directory. Apply always performs a full preflight check before changing files; destinations that already match the profile are left untouched and only recorded in applied state. --force backs up conflicting destinations before overwriting them.
+Reconcile the home-to-repo direction for the active profile. Sync copies destination changes and new files under tracked roots into the profile, refreshes applied-state rows for matching files, and refuses destination conflicts unless --force backs up conflicting repo files and takes the destination side.
 
 
 .SH OPTIONS
 \fB--dry-run\fP[=false]
-	show what would be applied without changing files
+	show what would be synced without changing files
 
 .PP
 \fB--force\fP[=false]
-	back up and overwrite conflicting destination files
+	back up conflicting repo files and take the destination side
 
 .PP
 \fB-h\fP, \fB--help\fP[=false]
-	help for apply
+	help for sync
 
 
 .SH OPTIONS INHERITED FROM PARENT COMMANDS

@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"time"
 )
 
 type applyOptions struct {
@@ -51,9 +50,9 @@ func applyProfile(rt *Runtime, opts applyOptions, out io.Writer) error {
 		return ExitError{Code: 1, Silent: true}
 	}
 
-	backupRoot := ""
+	var backups *backupSetWriter
 	if opts.Force {
-		backupRoot = filepath.Join(rt.StateDir, "backups", rt.Profile, time.Now().UTC().Format("20060102T150405.000000000Z"))
+		backups = newBackupSetWriter(rt)
 	}
 
 	writePaths := applyWritePaths(report, opts)
@@ -65,7 +64,7 @@ func applyProfile(rt *Runtime, opts applyOptions, out io.Writer) error {
 		src := repoFilePath(rt, record.Path)
 		dst := destinationPath(rt, record.Path)
 		if opts.Force {
-			if err := backupExistingDestination(dst, filepath.Join(backupRoot, filepath.FromSlash(record.Path)), record); err != nil {
+			if err := backupExistingDestination(dst, backups, record.Path, record); err != nil {
 				return err
 			}
 		}
@@ -90,13 +89,9 @@ func applyProfile(rt *Runtime, opts applyOptions, out io.Writer) error {
 	if _, err := fmt.Fprintf(out, "Apply complete: copied %d file(s), left %d matching file(s) untouched for profile %s\n", copied, untouched, rt.Profile); err != nil {
 		return err
 	}
-	if backupRoot != "" {
-		if hasBackups, err := directoryHasEntries(backupRoot); err != nil {
+	if backups.Written() {
+		if _, err := fmt.Fprintf(out, "Backups written to: %s\n", backups.Path()); err != nil {
 			return err
-		} else if hasBackups {
-			if _, err := fmt.Fprintf(out, "Backups written to: %s\n", backupRoot); err != nil {
-				return err
-			}
 		}
 	}
 	return nil
@@ -142,7 +137,7 @@ func writeApplyPlan(out io.Writer, report statusReport, opts applyOptions) error
 	return nil
 }
 
-func backupExistingDestination(dst, backupPath string, record FileRecord) error {
+func backupExistingDestination(dst string, backups *backupSetWriter, trackedPath string, record FileRecord) error {
 	info, err := os.Lstat(dst)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -159,6 +154,13 @@ func backupExistingDestination(dst, backupPath string, record FileRecord) error 
 			return nil
 		}
 	}
+	if backups == nil {
+		return errors.New("backup writer is required for forced apply")
+	}
+	backupPath, err := backups.backupPath(backupOriginHome, trackedPath)
+	if err != nil {
+		return err
+	}
 	if err := os.MkdirAll(filepath.Dir(backupPath), 0o750); err != nil {
 		return fmt.Errorf("create backup directory: %w", err)
 	}
@@ -166,15 +168,4 @@ func backupExistingDestination(dst, backupPath string, record FileRecord) error 
 		return fmt.Errorf("backup %s to %s: %w", dst, backupPath, err)
 	}
 	return nil
-}
-
-func directoryHasEntries(path string) (bool, error) {
-	entries, err := os.ReadDir(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return false, nil
-		}
-		return false, fmt.Errorf("read backup directory %s: %w", path, err)
-	}
-	return len(entries) > 0, nil
 }

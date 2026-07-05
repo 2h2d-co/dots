@@ -311,12 +311,32 @@ func (a *App) newApplyCommand() *cobra.Command {
 	return cmd
 }
 
+func (a *App) newSyncCommand() *cobra.Command {
+	var opts syncOptions
+	cmd := &cobra.Command{
+		Use:   "sync",
+		Short: "Copy changed home files back into the active profile",
+		Long:  "Reconcile the home-to-repo direction for the active profile. Sync copies destination changes and new files under tracked roots into the profile, refreshes applied-state rows for matching files, and refuses destination conflicts unless --force backs up conflicting repo files and takes the destination side.",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			rt, err := a.resolveRuntime()
+			if err != nil {
+				return err
+			}
+			return syncProfile(rt, opts, cmd.OutOrStdout())
+		},
+	}
+	cmd.Flags().BoolVar(&opts.DryRun, "dry-run", false, "show what would be synced without changing files")
+	cmd.Flags().BoolVar(&opts.Force, "force", false, "back up conflicting repo files and take the destination side")
+	return cmd
+}
+
 func (a *App) newDiffCommand() *cobra.Command {
 	var opts diffOptions
 	cmd := &cobra.Command{
 		Use:   "diff",
 		Short: "Show what apply or sync would change as a unified diff",
-		Long:  "Show a read-only git-style unified diff for what dots apply --force would change. With --sync, preview the future home-to-repo sync direction instead. Patch text is written to stdout; notes and refusals are written to stderr.",
+		Long:  "Show a read-only git-style unified diff for what dots apply --force would change. With --sync, preview what dots sync --force would change instead. Patch text is written to stdout; notes and refusals are written to stderr.",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			rt, err := a.resolveRuntime()
@@ -455,7 +475,7 @@ func (a *App) newReindexCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := ensureNothingToPull(rt.Repo); err != nil {
+			if err := ensureNothingToPull(rt.Repo, "reindex"); err != nil {
 				return err
 			}
 			records, err := collectProfileRecords(rt)

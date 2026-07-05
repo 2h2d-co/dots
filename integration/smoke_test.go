@@ -6,6 +6,7 @@ package integration
 import (
 	"bytes"
 	"database/sql"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"os"
@@ -719,6 +720,116 @@ func TestLifecycle(t *testing.T) {
 	assertFileExists(t, filepath.Join(env.home, ".config", "app", "keep"))
 }
 
+func TestSyncCommand(t *testing.T) {
+	env := newTestEnv(t)
+	trackedRoot := filepath.Join(env.home, ".config", "syncapp")
+	writeFile(t, filepath.Join(env.home, ".zshrc"), "base\n", 0o644)
+	writeFile(t, filepath.Join(trackedRoot, ".dotsignore"), "ignored\n", 0o644)
+	writeFile(t, filepath.Join(trackedRoot, "base"), "base\n", 0o644)
+	env.requireRun("init", env.repo, "--profile", "personal")
+	env.requireRun("add", filepath.Join(env.home, ".zshrc"))
+	env.requireRun("add", trackedRoot)
+
+	writeFile(t, filepath.Join(env.home, ".zshrc"), "home edit\n", 0o600)
+	if err := os.Chmod(filepath.Join(env.home, ".zshrc"), 0o600); err != nil {
+		t.Fatalf("chmod edited destination: %v", err)
+	}
+	writeFile(t, filepath.Join(trackedRoot, "new"), "new\n", 0o644)
+	writeFile(t, filepath.Join(trackedRoot, "ignored"), "ignored\n", 0o644)
+
+	result := env.requireRun("sync", "--dry-run")
+	assertContains(t, result.stdout, "Sync plan (dry run; no files changed):")
+	assertContains(t, result.stdout, "Files to update in repo:")
+	assertContains(t, result.stdout, "  .zshrc")
+	assertContains(t, result.stdout, "Files to add to repo:")
+	assertContains(t, result.stdout, "  .config/syncapp/new")
+	assertNotContains(t, result.stdout, ".config/syncapp/ignored")
+	assertFileContent(t, filepath.Join(env.repo, "personal", ".zshrc"), "base\n")
+
+	result = env.requireRun("sync")
+	assertContains(t, result.stdout, "Sync complete: copied 2 file(s), recorded state for 2 file(s)")
+	assertFileContent(t, filepath.Join(env.repo, "personal", ".zshrc"), "home edit\n")
+	assertFileContent(t, filepath.Join(env.repo, "personal", ".config", "syncapp", "new"), "new\n")
+	info, err := os.Stat(filepath.Join(env.repo, "personal", ".zshrc"))
+	if err != nil {
+		t.Fatalf("stat synced repo file: %v", err)
+	}
+	if info.Mode().Perm() != 0o600 {
+		t.Fatalf("synced repo mode = %o, want 600", info.Mode().Perm())
+	}
+	result = env.requireRun("status")
+	assertContains(t, result.stdout, "Clean: no changes")
+
+	if err := os.Remove(filepath.Join(env.home, ".zshrc")); err != nil {
+		t.Fatalf("remove tracked destination: %v", err)
+	}
+	result = env.requireRun("sync")
+	assertContains(t, result.stdout, "dots forget .zshrc")
+	assertFileContent(t, filepath.Join(env.repo, "personal", ".zshrc"), "home edit\n")
+}
+
+func TestSyncForceBacksUpRepoConflict(t *testing.T) {
+	env := newTestEnv(t)
+	writeFile(t, filepath.Join(env.home, ".zshrc"), "base\n", 0o644)
+	env.requireRun("init", env.repo, "--profile", "personal")
+	env.requireRun("add", filepath.Join(env.home, ".zshrc"))
+	writeFile(t, filepath.Join(env.repo, "personal", ".zshrc"), "repo\n", 0o644)
+	env.requireRun("reindex")
+	writeFile(t, filepath.Join(env.home, ".zshrc"), "home\n", 0o644)
+
+	result := env.run("sync")
+	assertExitCode(t, result, 1)
+	assertContains(t, result.stdout, "destination and profile diverged since last apply: .zshrc")
+	assertContains(t, result.stdout, "Sync aborted: destination conflicts found")
+	assertFileContent(t, filepath.Join(env.repo, "personal", ".zshrc"), "repo\n")
+
+	result = env.requireRun("sync", "--force")
+	assertContains(t, result.stdout, "Backups written to:")
+	assertFileContent(t, filepath.Join(env.repo, "personal", ".zshrc"), "home\n")
+	assertBackupContainsOrigin(t, filepath.Join(env.state, "dots", "backups", "personal"), "repo", filepath.Join(".zshrc"), "repo\n")
+	result = env.requireRun("status")
+	assertContains(t, result.stdout, "Clean: no changes")
+}
+
+func TestSyncRefusesWhenRemoteHasChangesToPull(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not installed")
+	}
+	env := newTestEnv(t)
+	writeFile(t, filepath.Join(env.home, ".gitrc"), "local\n", 0o644)
+	env.requireRun("init", env.repo, "--profile", "personal")
+	env.requireRun("add", filepath.Join(env.home, ".gitrc"))
+
+	runGit(t, env.repo, "init", "-b", "main")
+	runGit(t, env.repo, "config", "user.email", "dots@example.com")
+	runGit(t, env.repo, "config", "user.name", "Dots Test")
+	runGit(t, env.repo, "add", ".")
+	runGit(t, env.repo, "commit", "-m", "initial")
+	remote := filepath.Join(t.TempDir(), "remote.git")
+	runGit(t, "", "init", "--bare", remote)
+	runGit(t, env.repo, "remote", "add", "origin", remote)
+	runGit(t, env.repo, "push", "-u", "origin", "main")
+	runGit(t, remote, "symbolic-ref", "HEAD", "refs/heads/main")
+
+	clone := filepath.Join(t.TempDir(), "clone")
+	runGit(t, "", "clone", "--branch", "main", remote, clone)
+	runGit(t, clone, "config", "user.email", "dots@example.com")
+	runGit(t, clone, "config", "user.name", "Dots Test")
+	writeFile(t, filepath.Join(clone, "remote.txt"), "remote\n", 0o644)
+	runGit(t, clone, "add", "remote.txt")
+	runGit(t, clone, "commit", "-m", "remote change")
+	runGit(t, clone, "push")
+
+	writeFile(t, filepath.Join(env.home, ".gitrc"), "home changed\n", 0o644)
+	result := env.requireRun("sync", "--dry-run")
+	assertContains(t, result.stdout, "Sync plan (dry run; no files changed):")
+	assertContains(t, result.stdout, "Files to update in repo:")
+	result = env.run("sync")
+	assertExitCode(t, result, 1)
+	assertContains(t, result.stderr, "pull before sync")
+	assertFileContent(t, filepath.Join(env.repo, "personal", ".gitrc"), "local\n")
+}
+
 func TestDiffCommand(t *testing.T) {
 	env := newTestEnv(t)
 	writeFile(t, filepath.Join(env.home, ".zshrc"), "hello\n", 0o644)
@@ -1202,6 +1313,12 @@ func assertFileContent(t *testing.T, path string, want string) {
 
 func assertBackupContains(t *testing.T, backupRoot, relPath, want string) {
 	t.Helper()
+	assertBackupContainsOrigin(t, backupRoot, "", relPath, want)
+}
+
+func assertBackupContainsOrigin(t *testing.T, backupRoot, origin, relPath, want string) {
+	t.Helper()
+	encoded := base64.RawURLEncoding.EncodeToString([]byte(filepath.ToSlash(relPath)))
 	found := false
 	if err := filepath.WalkDir(backupRoot, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
@@ -1210,18 +1327,23 @@ func assertBackupContains(t *testing.T, backupRoot, relPath, want string) {
 		if entry.IsDir() || filepath.ToSlash(path) == filepath.ToSlash(backupRoot) {
 			return nil
 		}
-		if strings.HasSuffix(filepath.ToSlash(path), "/"+filepath.ToSlash(relPath)) {
-			content, err := os.ReadFile(path)
-			if err != nil {
-				return err
-			}
-			found = found || string(content) == want
+		slashPath := filepath.ToSlash(path)
+		if !strings.HasSuffix(slashPath, "/"+encoded+"/payload") {
+			return nil
 		}
+		if origin != "" && !strings.Contains(slashPath, "/"+origin+"/") {
+			return nil
+		}
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		found = found || string(content) == want
 		return nil
 	}); err != nil {
 		t.Fatalf("walk backups: %v", err)
 	}
 	if !found {
-		t.Fatalf("backup %s under %s with content %q not found", relPath, backupRoot, want)
+		t.Fatalf("backup %s under %s with origin %q and content %q not found", relPath, backupRoot, origin, want)
 	}
 }

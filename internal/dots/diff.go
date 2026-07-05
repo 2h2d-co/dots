@@ -132,49 +132,34 @@ func buildApplyDiffPlan(rt *Runtime, report statusReport, records []FileRecord) 
 }
 
 func buildSyncDiffPlan(rt *Runtime, report statusReport, records []FileRecord) (diffPlan, error) {
+	syncPlan, err := buildSyncPlan(report, records, true)
+	if err != nil {
+		return diffPlan{}, err
+	}
 	plan := diffPlan{}
-	recordsByPath := fileRecordMap(records)
-	for _, item := range report.Conflict {
-		switch item.Kind {
-		case kindConflictChanged, kindConflictDiverged, kindConflictManaged:
-			record, ok := recordsByPath[item.Path]
-			if !ok {
-				return diffPlan{}, fmt.Errorf("tracked record missing for %s", item.Path)
-			}
-			entry, err := syncUpdateDiffEntry(rt, item.Path, record)
-			if err != nil {
-				return diffPlan{}, err
-			}
-			plan.Entries = append(plan.Entries, entry)
-			if item.Kind != kindConflictChanged {
-				plan.Notes = append(plan.Notes, diffNote{Path: item.Path, Text: fmt.Sprintf("diff: plain sync refuses %s; `dots sync --force` would copy the home file into the repo", item.Path)})
-			}
-		case kindConflictType:
-			plan.Notes = append(plan.Notes, diffNote{Path: item.Path, Text: conflictTypeDiffNote(item)})
+	for _, item := range syncPlan.Updates {
+		entry, err := syncUpdateDiffEntry(rt, item.Path, item.Record)
+		if err != nil {
+			return diffPlan{}, err
+		}
+		plan.Entries = append(plan.Entries, entry)
+		if item.RequiresForce {
+			plan.Notes = append(plan.Notes, diffNote{Path: item.Path, Text: fmt.Sprintf("diff: plain sync refuses %s; `dots sync --force` would copy the home file into the repo", item.Path)})
 		}
 	}
-	for _, item := range report.Directory {
-		switch item.Kind {
-		case kindDirectoryUntracked:
-			newContent, newMode, err := readDiffFile(destinationPath(rt, item.Path))
-			if err != nil {
-				return diffPlan{}, err
-			}
-			plan.Entries = append(plan.Entries, diffEntry{
-				Path:       item.Path,
-				NewContent: newContent,
-				NewMode:    newMode,
-			})
-		case kindDirectoryUnsupported:
-			plan.Notes = append(plan.Notes, diffNote{Path: item.Path, Text: fmt.Sprintf("diff: untracked destination is not regular: %s", item.Path)})
-		case kindDirectoryRootConflict:
-			plan.Notes = append(plan.Notes, diffNote{Path: item.Path, Text: fmt.Sprintf("diff: tracked directory is not a directory: %s", item.Path)})
+	for _, item := range syncPlan.Adds {
+		newContent, newMode, err := readDiffFile(destinationPath(rt, item.Path))
+		if err != nil {
+			return diffPlan{}, err
 		}
+		plan.Entries = append(plan.Entries, diffEntry{
+			Path:       item.Path,
+			NewContent: newContent,
+			NewMode:    newMode,
+		})
 	}
-	for _, item := range report.Pending {
-		if item.Kind == kindPendingCreate {
-			plan.Notes = append(plan.Notes, diffNote{Path: item.Path, Text: fmt.Sprintf("diff: %s is missing from $HOME; sync will not delete repo files, use `dots forget %s` if tracking should stop", item.Path, item.Path)})
-		}
+	for _, note := range syncPlan.Notes {
+		plan.Notes = append(plan.Notes, diffNote{Path: note.Path, Text: syncDiffNoteText(note)})
 	}
 	plan.sort()
 	return plan, nil
@@ -223,6 +208,24 @@ func conflictTypeDiffNote(item statusItem) string {
 		return fmt.Sprintf("diff: destination is not a regular file: %s", item.Path)
 	}
 	return fmt.Sprintf("diff: destination is not a regular file: %s (%s)", item.Path, item.Detail)
+}
+
+func syncDiffNoteText(note syncPlanNote) string {
+	switch note.Kind {
+	case kindPendingCreate:
+		return fmt.Sprintf("diff: %s is missing from $HOME; sync will not delete repo files, use `dots forget %s` if tracking should stop", note.Path, note.Path)
+	case kindConflictType:
+		if note.Detail != "" {
+			return fmt.Sprintf("diff: destination is not a regular file: %s (%s)", note.Path, note.Detail)
+		}
+		return fmt.Sprintf("diff: destination is not a regular file: %s", note.Path)
+	case kindDirectoryUnsupported:
+		return fmt.Sprintf("diff: untracked destination is not regular: %s", note.Path)
+	case kindDirectoryRootConflict:
+		return fmt.Sprintf("diff: tracked directory is not a directory: %s", note.Path)
+	default:
+		return "diff: " + note.Text
+	}
 }
 
 func readDiffFile(path string) ([]byte, int64, error) {
