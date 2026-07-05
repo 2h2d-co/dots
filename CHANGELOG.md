@@ -18,6 +18,10 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) st
 - Split destination conflict reporting between destination-only changes and true destination/profile divergence.
 - Changed force backups to use origin-segmented `YYYYMMDD.IDX/{home,repo}/{ENTRY}/payload` sets so destination and repo backups are distinguishable.
 
+### Security
+
+- Added pinned Gitleaks scanning for home-to-repo content and deterministic npm auth-token line scrubbing so npm auth tokens are not copied into profile repos.
+
 ## [0.0.2] - 2026-07-05
 
 ### Added

@@ -10,7 +10,7 @@ dots-sync - Copy changed home files back into the active profile
 
 
 .SH DESCRIPTION
-Reconcile the home-to-repo direction for the active profile. Sync copies destination changes and new files under tracked roots into the profile, refreshes applied-state rows for matching files, and refuses destination conflicts unless --force backs up conflicting repo files and takes the destination side.
+Reconcile the home-to-repo direction for the active profile. Sync copies destination changes and new files under tracked roots into the profile, refreshes applied-state rows for matching files, and refuses destination conflicts unless --force backs up conflicting repo files and takes the destination side. Home-to-repo content is scanned with pinned Gitleaks rules; supported npm auth token findings and npmrc auth lines are scrubbed before writing, and remaining findings abort before changes.
 
 
 .SH OPTIONS

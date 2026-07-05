@@ -143,7 +143,7 @@ func analyzeStatusWithDB(rt *Runtime, repoDB, stateDB *sql.DB) (statusReport, []
 	for _, record := range records {
 		stateRecord, hasState := stateRecordsByPath[record.Path]
 		dest := destinationPath(rt, record.Path)
-		destSHA, destMode, err := destinationFingerprint(dest)
+		destSHA, destMode, err := destinationCanonicalFingerprint(record.Path, dest)
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
 				report.Pending = append(report.Pending, statusItem{Kind: kindPendingCreate, Path: record.Path})

@@ -36,11 +36,11 @@ dots sync
 ## Commands
 
 - `dots init REPO --profile PROFILE`: initialize config or add one configured profile, then create its profile directory and SQLite tracking databases.
-- `dots add [--dry-run] [PATH]`: copy a file or directory from `$HOME` into the active profile and update the profile and applied-state databases for the added files. Directory adds also record the directory as a tracked root, so future new files under it appear in status. Tracked directory roots may be nested. `PATH` defaults to the current directory. Paths inside any configured dots repo are refused. `--dry-run` lists the files and directory roots that would be added without copying files or updating the database.
-- `dots apply [--dry-run] [--force]`: apply tracked profile files back to `$HOME` after a full preflight check. Destinations that already match the profile are left untouched and only recorded in applied state. `--force` backs up conflicting destinations before overwriting.
-- `dots sync [--dry-run] [--force]`: copy destination changes and new files under tracked roots back into the active profile, refreshing applied state for files it records. Plain sync refuses destination/profile conflicts; `--force` backs up conflicting repo files and takes the destination side.
-- `dots diff [--sync] [--no-pager]`: print a git-style unified diff for what `dots apply --force` would change. `--sync` previews what `dots sync --force` would change. Patch text goes to stdout; notes and refusals go to stderr so output can be piped to tools such as `hunk`.
-- `dots status`: show profile drift, tracked-directory drift, pending changes, destination conflicts, and stale applied state for the active profile.
+- `dots add [--dry-run] [PATH]`: copy a file or directory from `$HOME` into the active profile and update the profile and applied-state databases for the added files. Directory adds also record the directory as a tracked root, so future new files under it appear in status. Tracked directory roots may be nested. `PATH` defaults to the current directory. Paths inside any configured dots repo are refused. Home-to-repo content is scanned with pinned Gitleaks rules; supported npm auth token findings and npmrc auth lines are scrubbed before writing, and remaining findings abort before changes. `--dry-run` lists the files and directory roots that would be added without copying files or updating the database.
+- `dots apply [--dry-run] [--force]`: apply tracked profile files back to `$HOME` after a full preflight check. Destinations whose scrubbed canonical content already matches the profile are left untouched and only recorded in applied state, preserving local-only credentials. `--force` backs up conflicting destinations before overwriting.
+- `dots sync [--dry-run] [--force]`: copy destination changes and new files under tracked roots back into the active profile, refreshing applied state for files it records. Home-to-repo content is scanned with pinned Gitleaks rules; supported npm auth token findings and npmrc auth lines are scrubbed before writing, and remaining findings abort before changes. Plain sync refuses destination/profile conflicts; `--force` backs up conflicting repo files and takes the destination side.
+- `dots diff [--sync] [--no-pager]`: print a git-style unified diff for what `dots apply --force` would change. Destination-side content is canonicalized with the same secret scrubbing used by add and sync so patches do not expose scrubbed local credentials. `--sync` previews what `dots sync --force` would change. Patch text goes to stdout; notes and refusals go to stderr so output can be piped to tools such as `hunk`.
+- `dots status`: show profile drift, tracked-directory drift, pending changes, destination conflicts, and stale applied state for the active profile. Supported secret-scrubbed paths are compared by canonical content, so local-only npm auth token changes do not create drift.
 - `dots doctor`: run status checks for all configured profiles, or only the overridden profile when `--profile` or `DOTS_PROFILE` is set.
 - `dots list`: list tracked files in the active profile.
 - `dots reindex`: rebuild the active profile database from current profile files. If the repo has a configured git upstream, reindex refuses to run when the upstream has changes that are not reflected locally.
@@ -82,6 +82,8 @@ dots sync
 - Tracked directory roots may be nested; status output groups paths by the most specific tracked root, with directly tracked files shown under `Individual paths`.
 - Nested `.dotsignore` files are treated as regular files when they are not ignored; they do not add more ignore rules.
 - `dots sync` never deletes profile files for missing destinations; use `dots forget` explicitly when tracking should stop.
+- Home-to-repo copies are scanned with pinned Gitleaks default rules. Supported npm auth token findings blank the entire finding line in any file; npmrc `_authToken`, `_auth`, and `_password` lines can also be blanked when stock Gitleaks flags them. Unsupported remaining findings block the copy without printing raw secrets.
+- Local npm auth token changes are compared through the scrubbed canonical view, so token value churn does not create status drift or force apply to overwrite the local credential.
 
 ## Safety and exits
 
@@ -95,7 +97,7 @@ dots sync
 
 ## Excluded functionality
 
-`dots` does not support archives, URL fetching, git/submodule management beyond read-only reindex freshness checks, templates, hooks, secrets, package management, TUI workflows, or profile inheritance.
+`dots` does not support archives, URL fetching, git/submodule management beyond read-only reindex freshness checks, templates, hooks, secret storage/restoration, package management, TUI workflows, or profile inheritance.
 
 ## Requirements
 

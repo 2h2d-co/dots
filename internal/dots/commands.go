@@ -235,7 +235,7 @@ func (a *App) newAddCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add [PATH]",
 		Short: "Copy a file or directory into the active profile",
-		Long:  "Copy a file or directory from the home directory into the active profile and update the profile tracking database and applied-state database for added files. Directory adds also record the directory as a tracked root so future new files under it appear in status. Tracked directory roots may be nested. PATH defaults to the current directory. Paths inside any configured dots repo are refused. --dry-run lists the files and directory roots that would be added without copying files or updating the database.",
+		Long:  "Copy a file or directory from the home directory into the active profile and update the profile tracking database and applied-state database for added files. Directory adds also record the directory as a tracked root so future new files under it appear in status. Tracked directory roots may be nested. PATH defaults to the current directory. Paths inside any configured dots repo are refused. Home-to-repo content is scanned with pinned Gitleaks rules; supported npm auth token findings and npmrc auth lines are scrubbed before writing, and remaining findings abort before changes. --dry-run lists the files and directory roots that would be added without copying files or updating the database.",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			target, err := targetOrCurrent(args)
@@ -296,7 +296,7 @@ func (a *App) newApplyCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Preview or apply tracked files to the home directory",
-		Long:  "Preview tracked files from the active profile or apply needed changes to the home directory. Apply always performs a full preflight check before changing files; destinations that already match the profile are left untouched and only recorded in applied state. --force backs up conflicting destinations before overwriting them.",
+		Long:  "Preview tracked files from the active profile or apply needed changes to the home directory. Apply always performs a full preflight check before changing files; destinations whose scrubbed canonical content already matches the profile are left untouched and only recorded in applied state, preserving local-only credentials. --force backs up conflicting destinations before overwriting them.",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			rt, err := a.resolveRuntime()
@@ -316,7 +316,7 @@ func (a *App) newSyncCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "sync",
 		Short: "Copy changed home files back into the active profile",
-		Long:  "Reconcile the home-to-repo direction for the active profile. Sync copies destination changes and new files under tracked roots into the profile, refreshes applied-state rows for matching files, and refuses destination conflicts unless --force backs up conflicting repo files and takes the destination side.",
+		Long:  "Reconcile the home-to-repo direction for the active profile. Sync copies destination changes and new files under tracked roots into the profile, refreshes applied-state rows for matching files, and refuses destination conflicts unless --force backs up conflicting repo files and takes the destination side. Home-to-repo content is scanned with pinned Gitleaks rules; supported npm auth token findings and npmrc auth lines are scrubbed before writing, and remaining findings abort before changes.",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			rt, err := a.resolveRuntime()
@@ -336,7 +336,7 @@ func (a *App) newDiffCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "diff",
 		Short: "Show what apply or sync would change as a unified diff",
-		Long:  "Show a read-only git-style unified diff for what dots apply --force would change. With --sync, preview what dots sync --force would change instead. Patch text is written to stdout; notes and refusals are written to stderr.",
+		Long:  "Show a read-only git-style unified diff for what dots apply --force would change. Destination-side content is canonicalized with the same secret scrubbing used by add and sync so patches do not expose scrubbed local credentials. With --sync, preview what dots sync --force would change instead. Patch text is written to stdout; notes and refusals are written to stderr.",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			rt, err := a.resolveRuntime()
@@ -355,7 +355,7 @@ func (a *App) newStatusCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
 		Short: "Show profile drift, directory drift, pending changes, and conflicts",
-		Long:  "Compare the active profile database, profile files, tracked directory roots, applied-state database, and home-directory destination files. When tracked roots are present, status output groups paths by the most specific tracked root and reports directly tracked files under Individual paths. A clean status exits 0; drift, pending changes, conflicts, directory drift, or stale state exit 1.",
+		Long:  "Compare the active profile database, profile files, tracked directory roots, applied-state database, and home-directory destination files. Supported secret-scrubbed paths are compared by canonical content, so local-only npm auth token changes do not create drift. When tracked roots are present, status output groups paths by the most specific tracked root and reports directly tracked files under Individual paths. A clean status exits 0; drift, pending changes, conflicts, directory drift, or stale state exit 1.",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			rt, err := a.resolveRuntime()

@@ -91,7 +91,7 @@ func buildApplyDiffPlan(rt *Runtime, report statusReport, records []FileRecord) 
 		}
 		switch item.Kind {
 		case kindPendingCreate:
-			newContent, _, err := readDiffFile(repoFilePath(rt, item.Path))
+			newContent, err := readDiffFile(repoFilePath(rt, item.Path))
 			if err != nil {
 				return diffPlan{}, err
 			}
@@ -148,7 +148,7 @@ func buildSyncDiffPlan(rt *Runtime, report statusReport, records []FileRecord) (
 		}
 	}
 	for _, item := range syncPlan.Adds {
-		newContent, newMode, err := readDiffFile(destinationPath(rt, item.Path))
+		newContent, newMode, err := readCanonicalDiffFile(item.Path, destinationPath(rt, item.Path))
 		if err != nil {
 			return diffPlan{}, err
 		}
@@ -166,11 +166,11 @@ func buildSyncDiffPlan(rt *Runtime, report statusReport, records []FileRecord) (
 }
 
 func applyUpdateDiffEntry(rt *Runtime, trackedPath string, record FileRecord) (diffEntry, error) {
-	oldContent, oldMode, err := readDiffFile(destinationPath(rt, trackedPath))
+	oldContent, oldMode, err := readCanonicalDiffFile(trackedPath, destinationPath(rt, trackedPath))
 	if err != nil {
 		return diffEntry{}, err
 	}
-	newContent, _, err := readDiffFile(repoFilePath(rt, trackedPath))
+	newContent, err := readDiffFile(repoFilePath(rt, trackedPath))
 	if err != nil {
 		return diffEntry{}, err
 	}
@@ -185,11 +185,11 @@ func applyUpdateDiffEntry(rt *Runtime, trackedPath string, record FileRecord) (d
 }
 
 func syncUpdateDiffEntry(rt *Runtime, trackedPath string, record FileRecord) (diffEntry, error) {
-	oldContent, _, err := readDiffFile(repoFilePath(rt, trackedPath))
+	oldContent, err := readDiffFile(repoFilePath(rt, trackedPath))
 	if err != nil {
 		return diffEntry{}, err
 	}
-	newContent, newMode, err := readDiffFile(destinationPath(rt, trackedPath))
+	newContent, newMode, err := readCanonicalDiffFile(trackedPath, destinationPath(rt, trackedPath))
 	if err != nil {
 		return diffEntry{}, err
 	}
@@ -228,25 +228,33 @@ func syncDiffNoteText(note syncPlanNote) string {
 	}
 }
 
-func readDiffFile(path string) ([]byte, int64, error) {
+func readCanonicalDiffFile(trackedPath, filePath string) ([]byte, int64, error) {
+	file, err := readCanonicalHomeFile(trackedPath, filePath, true)
+	if err != nil {
+		return nil, 0, err
+	}
+	return file.Content, file.Record.Mode, nil
+}
+
+func readDiffFile(path string) ([]byte, error) {
 	cleaned := filepath.Clean(path)
 	info, err := os.Lstat(cleaned)
 	if err != nil {
-		return nil, 0, fmt.Errorf("stat %s: %w", cleaned, err)
+		return nil, fmt.Errorf("stat %s: %w", cleaned, err)
 	}
 	if !info.Mode().IsRegular() {
-		return nil, 0, fmt.Errorf("unsupported file type at %s", cleaned)
+		return nil, fmt.Errorf("unsupported file type at %s", cleaned)
 	}
 	file, err := os.Open(cleaned)
 	if err != nil {
-		return nil, 0, fmt.Errorf("open %s: %w", cleaned, err)
+		return nil, fmt.Errorf("open %s: %w", cleaned, err)
 	}
 	defer func() { _ = file.Close() }()
 	content, err := io.ReadAll(file)
 	if err != nil {
-		return nil, 0, fmt.Errorf("read %s: %w", cleaned, err)
+		return nil, fmt.Errorf("read %s: %w", cleaned, err)
 	}
-	return content, int64(info.Mode().Perm()), nil
+	return content, nil
 }
 
 func renderDiffEntries(entries []diffEntry) (string, error) {

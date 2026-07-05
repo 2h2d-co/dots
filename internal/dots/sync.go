@@ -35,6 +35,13 @@ type syncPlanNote struct {
 	Text   string
 }
 
+type syncPreparedWrite struct {
+	Path          string
+	Content       []byte
+	Record        FileRecord
+	RequiresForce bool
+}
+
 func syncProfile(rt *Runtime, opts syncOptions, out io.Writer) error {
 	report, records, err := analyzeStatus(rt)
 	if err != nil {
@@ -61,7 +68,8 @@ func syncProfile(rt *Runtime, opts syncOptions, out io.Writer) error {
 		if len(plan.Conflicts) > 0 && !opts.Force {
 			return ExitError{Code: 1, Silent: true}
 		}
-		return nil
+		_, err := prepareSyncWrites(rt, plan)
+		return err
 	}
 
 	if len(plan.Conflicts) > 0 && !opts.Force {
@@ -75,6 +83,10 @@ func syncProfile(rt *Runtime, opts syncOptions, out io.Writer) error {
 	}
 
 	if err := ensureNothingToPull(rt.Repo, "sync"); err != nil {
+		return err
+	}
+	preparedWrites, err := prepareSyncWrites(rt, plan)
+	if err != nil {
 		return err
 	}
 
@@ -92,16 +104,9 @@ func syncProfile(rt *Runtime, opts syncOptions, out io.Writer) error {
 		backups = newBackupSetWriter(rt)
 	}
 
-	copiedRecords := make([]FileRecord, 0, len(plan.Updates)+len(plan.Adds))
-	for _, item := range plan.Updates {
-		record, err := syncCopyDestinationToRepo(rt, item, backups)
-		if err != nil {
-			return errors.Join(err, repoDB.Close(), stateDB.Close())
-		}
-		copiedRecords = append(copiedRecords, record)
-	}
-	for _, item := range plan.Adds {
-		record, err := syncCopyDestinationToRepo(rt, item, backups)
+	copiedRecords := make([]FileRecord, 0, len(preparedWrites))
+	for _, item := range preparedWrites {
+		record, err := syncWritePreparedToRepo(rt, item, backups)
 		if err != nil {
 			return errors.Join(err, repoDB.Close(), stateDB.Close())
 		}
@@ -210,11 +215,27 @@ func buildSyncPlan(report statusReport, records []FileRecord, force bool) (syncP
 	return plan, nil
 }
 
-func syncCopyDestinationToRepo(rt *Runtime, item syncPlanItem, backups *backupSetWriter) (FileRecord, error) {
-	destinationRecord, err := fileRecord(rt.Home, item.Path)
-	if err != nil {
-		return FileRecord{}, err
+func prepareSyncWrites(rt *Runtime, plan syncPlan) ([]syncPreparedWrite, error) {
+	items := make([]syncPlanItem, 0, len(plan.Updates)+len(plan.Adds))
+	items = append(items, plan.Updates...)
+	items = append(items, plan.Adds...)
+	writes := make([]syncPreparedWrite, 0, len(items))
+	for _, item := range items {
+		file, err := readCanonicalHomeFile(item.Path, destinationPath(rt, item.Path), true)
+		if err != nil {
+			return nil, err
+		}
+		writes = append(writes, syncPreparedWrite{
+			Path:          item.Path,
+			Content:       file.Content,
+			Record:        file.Record,
+			RequiresForce: item.RequiresForce,
+		})
 	}
+	return writes, nil
+}
+
+func syncWritePreparedToRepo(rt *Runtime, item syncPreparedWrite, backups *backupSetWriter) (FileRecord, error) {
 	repoPath := repoFilePath(rt, item.Path)
 	if item.RequiresForce {
 		if backups == nil {
@@ -224,10 +245,10 @@ func syncCopyDestinationToRepo(rt *Runtime, item syncPlanItem, backups *backupSe
 			return FileRecord{}, err
 		}
 	}
-	if err := copyFile(destinationPath(rt, item.Path), repoPath, destinationRecord.Mode); err != nil {
+	if err := writeFileBytes(repoPath, item.Content, item.Record.Mode); err != nil {
 		return FileRecord{}, err
 	}
-	return fileRecord(profileDir(rt), item.Path)
+	return item.Record, nil
 }
 
 func writeSyncPlan(out io.Writer, report statusReport, plan syncPlan, opts syncOptions) error {

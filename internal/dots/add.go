@@ -56,7 +56,7 @@ func collectAddPlan(rt *Runtime, target string) (addPlan, error) {
 		if err != nil {
 			return addPlan{}, err
 		}
-		item, err := newAddPlanItem(absTarget, trackedPath, info)
+		item, err := newAddPlanItem(absTarget, trackedPath)
 		if err != nil {
 			return addPlan{}, err
 		}
@@ -109,7 +109,7 @@ func collectAddPlan(rt *Runtime, target string) (addPlan, error) {
 		if err != nil {
 			return err
 		}
-		item, err := newAddPlanItem(path, trackedPath, info)
+		item, err := newAddPlanItem(path, trackedPath)
 		if err != nil {
 			return err
 		}
@@ -144,33 +144,28 @@ func rejectRepoTarget(rt *Runtime, target string) error {
 	return nil
 }
 
-func newAddPlanItem(src, trackedPath string, info fs.FileInfo) (addPlanItem, error) {
-	hash, err := hashFile(src)
+func newAddPlanItem(src, trackedPath string) (addPlanItem, error) {
+	file, err := readCanonicalHomeFile(trackedPath, src, true)
 	if err != nil {
 		return addPlanItem{}, err
 	}
 	return addPlanItem{
 		Source: src,
-		Record: FileRecord{
-			Path:   trackedPath,
-			SHA256: hash,
-			Mode:   int64(info.Mode().Perm()),
-			Size:   info.Size(),
-		},
+		Record: file.Record,
 	}, nil
 }
 
 func executeAddPlan(rt *Runtime, plan []addPlanItem) ([]FileRecord, error) {
 	records := make([]FileRecord, 0, len(plan))
 	for _, item := range plan {
-		if err := copyFile(item.Source, repoFilePath(rt, item.Record.Path), item.Record.Mode); err != nil {
-			return nil, err
-		}
-		record, err := fileRecord(profileDir(rt), item.Record.Path)
+		file, err := readCanonicalHomeFile(item.Record.Path, item.Source, true)
 		if err != nil {
 			return nil, err
 		}
-		records = append(records, record)
+		if err := writeFileBytes(repoFilePath(rt, item.Record.Path), file.Content, file.Record.Mode); err != nil {
+			return nil, err
+		}
+		records = append(records, file.Record)
 	}
 	sortFileRecords(records)
 	return records, nil
