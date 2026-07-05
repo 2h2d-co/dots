@@ -235,7 +235,7 @@ func (a *App) newAddCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add [PATH]",
 		Short: "Copy a file or directory into the active profile",
-		Long:  "Copy a file or directory from the home directory into the active profile and update the profile tracking database. Directory adds also record the directory as a tracked root so future new files under it appear in status. Tracked directory roots may be nested. PATH defaults to the current directory. Paths inside any configured dots repo are refused. --dry-run lists the files and directory roots that would be added without copying files or updating the database.",
+		Long:  "Copy a file or directory from the home directory into the active profile and update the profile tracking database and applied-state database for added files. Directory adds also record the directory as a tracked root so future new files under it appear in status. Tracked directory roots may be nested. PATH defaults to the current directory. Paths inside any configured dots repo are refused. --dry-run lists the files and directory roots that would be added without copying files or updating the database.",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			target, err := targetOrCurrent(args)
@@ -257,17 +257,24 @@ func (a *App) newAddCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			records, err := executeAddPlan(rt, plan.Items)
+			stateDB, err := openStateDB(rt.StateDir, rt.Profile)
 			if err != nil {
 				return errors.Join(err, repoDB.Close())
 			}
+			records, err := executeAddPlan(rt, plan.Items)
+			if err != nil {
+				return errors.Join(err, repoDB.Close(), stateDB.Close())
+			}
 			if err := upsertRepoRecords(repoDB, records); err != nil {
-				return errors.Join(err, repoDB.Close())
+				return errors.Join(err, repoDB.Close(), stateDB.Close())
 			}
 			if err := upsertTrackedDirs(repoDB, plan.TrackedDirs); err != nil {
-				return errors.Join(err, repoDB.Close())
+				return errors.Join(err, repoDB.Close(), stateDB.Close())
 			}
-			if err := repoDB.Close(); err != nil {
+			if err := upsertStateRecords(stateDB, records); err != nil {
+				return errors.Join(err, repoDB.Close(), stateDB.Close())
+			}
+			if err := errors.Join(repoDB.Close(), stateDB.Close()); err != nil {
 				return err
 			}
 			if _, err := fmt.Fprintf(cmd.OutOrStdout(), "Added %d file(s) to profile %s\n", len(records), rt.Profile); err != nil {
@@ -301,6 +308,26 @@ func (a *App) newApplyCommand() *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&opts.DryRun, "dry-run", false, "show what would be applied without changing files")
 	cmd.Flags().BoolVar(&opts.Force, "force", false, "back up and overwrite conflicting destination files")
+	return cmd
+}
+
+func (a *App) newDiffCommand() *cobra.Command {
+	var opts diffOptions
+	cmd := &cobra.Command{
+		Use:   "diff",
+		Short: "Show what apply or sync would change as a unified diff",
+		Long:  "Show a read-only git-style unified diff for what dots apply --force would change. With --sync, preview the future home-to-repo sync direction instead. Patch text is written to stdout; notes and refusals are written to stderr.",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			rt, err := a.resolveRuntime()
+			if err != nil {
+				return err
+			}
+			return diffProfile(rt, opts, cmd.OutOrStdout(), cmd.ErrOrStderr())
+		},
+	}
+	cmd.Flags().BoolVar(&opts.Sync, "sync", false, "preview home-to-repo sync changes")
+	cmd.Flags().BoolVar(&opts.NoPager, "no-pager", false, "write raw diff output without using a configured pager")
 	return cmd
 }
 

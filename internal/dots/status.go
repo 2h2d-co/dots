@@ -23,6 +23,7 @@ const (
 	kindPendingAdopt          statusKind = "will adopt existing match"
 	kindPendingState          statusKind = "will refresh apply state"
 	kindConflictChanged       statusKind = "destination changed since last apply"
+	kindConflictDiverged      statusKind = "destination and profile diverged since last apply"
 	kindConflictManaged       statusKind = "unmanaged destination differs"
 	kindConflictType          statusKind = "destination is not a regular file"
 	kindDirectoryUntracked    statusKind = "untracked destination file"
@@ -174,8 +175,10 @@ func analyzeStatusWithDB(rt *Runtime, repoDB, stateDB *sql.DB) (statusReport, []
 			report.Pending = append(report.Pending, statusItem{Kind: kindPendingState, Path: record.Path})
 		case destMatchesState:
 			report.Pending = append(report.Pending, statusItem{Kind: kindPendingUpdate, Path: record.Path})
-		default:
+		case stateMatchesRepo:
 			report.Conflict = append(report.Conflict, statusItem{Kind: kindConflictChanged, Path: record.Path})
+		default:
+			report.Conflict = append(report.Conflict, statusItem{Kind: kindConflictDiverged, Path: record.Path})
 		}
 	}
 

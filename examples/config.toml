@@ -2,6 +2,7 @@
 # Default path: ${XDG_CONFIG_HOME:-$HOME/.config}/dots/config.toml
 
 default_profile = "personal"
+# pager = "hunk patch --pager -"
 
 [profiles]
 personal = "~/dotfiles"

@@ -39,7 +39,8 @@ func TestAnalyzeStatusClassifiesChanges(t *testing.T) {
 		writeRepoTrackedFile(t, rt, "pending-adopt", "adopt\n"),
 		writeRepoTrackedFile(t, rt, "conflict-unmanaged", "repo\n"),
 		writeRepoTrackedFile(t, rt, "pending-update", "new\n"),
-		writeRepoTrackedFile(t, rt, "conflict-changed", "new\n"),
+		writeRepoTrackedFile(t, rt, "conflict-changed", "old\n"),
+		writeRepoTrackedFile(t, rt, "conflict-diverged", "new\n"),
 		writeRepoTrackedFile(t, rt, "conflict-type", "file\n"),
 		writeRepoTrackedFile(t, rt, "pending-state", "new\n"),
 	}
@@ -50,6 +51,7 @@ func TestAnalyzeStatusClassifiesChanges(t *testing.T) {
 	writeDestinationFile(t, rt, "conflict-unmanaged", "different\n")
 	writeDestinationFile(t, rt, "pending-update", "old\n")
 	writeDestinationFile(t, rt, "conflict-changed", "user\n")
+	writeDestinationFile(t, rt, "conflict-diverged", "user\n")
 	if err := os.MkdirAll(destinationPath(rt, "conflict-type"), 0o750); err != nil {
 		t.Fatalf("create destination directory conflict: %v", err)
 	}
@@ -58,6 +60,7 @@ func TestAnalyzeStatusClassifiesChanges(t *testing.T) {
 	stateRecords := []FileRecord{
 		testFileRecord("pending-update", "old\n"),
 		testFileRecord("conflict-changed", "old\n"),
+		testFileRecord("conflict-diverged", "old\n"),
 		testFileRecord("pending-state", "old\n"),
 		testFileRecord("stale-state", "stale\n"),
 	}
@@ -86,6 +89,7 @@ func TestAnalyzeStatusClassifiesChanges(t *testing.T) {
 	assertStatusItem(t, report.Pending, kindPendingState, "pending-state")
 	assertStatusItem(t, report.Conflict, kindConflictManaged, "conflict-unmanaged")
 	assertStatusItem(t, report.Conflict, kindConflictChanged, "conflict-changed")
+	assertStatusItem(t, report.Conflict, kindConflictDiverged, "conflict-diverged")
 	assertStatusItem(t, report.Conflict, kindConflictType, "conflict-type")
 	assertStatusItem(t, report.State, kindStaleState, "stale-state")
 }

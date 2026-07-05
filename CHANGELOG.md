@@ -6,6 +6,16 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) st
 
 ## Unreleased
 
+### Added
+
+- Added `dots diff` to print git-style unified patches for apply-direction changes, with `--sync` to preview the future home-to-repo sync flow.
+- Added optional `dots diff` pager support through `DOTS_PAGER`, the `pager` config key, and `--no-pager`.
+
+### Changed
+
+- Changed `dots add` to record applied state for added files so immediate status checks stay clean and later home edits are classified accurately.
+- Split destination conflict reporting between destination-only changes and true destination/profile divergence.
+
 ## [0.0.2] - 2026-07-05
 
 ### Added

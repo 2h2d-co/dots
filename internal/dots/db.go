@@ -319,6 +319,41 @@ func replaceRepoRecords(db *sql.DB, records []FileRecord) error {
 	return nil
 }
 
+func upsertStateRecords(db *sql.DB, records []FileRecord) error {
+	if len(records) == 0 {
+		return nil
+	}
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("begin state update: %w", err)
+	}
+	defer rollbackUnlessCommitted(tx)
+
+	statement, err := tx.Prepare(`INSERT INTO files (path, sha256, repo_sha256, mode, size, applied_at)
+		VALUES (?, ?, ?, ?, ?, ?)
+		ON CONFLICT(path) DO UPDATE SET
+			sha256 = excluded.sha256,
+			repo_sha256 = excluded.repo_sha256,
+			mode = excluded.mode,
+			size = excluded.size,
+			applied_at = excluded.applied_at`)
+	if err != nil {
+		return fmt.Errorf("prepare state update: %w", err)
+	}
+	defer func() { _ = statement.Close() }()
+
+	now := time.Now().UTC().Format(time.RFC3339Nano)
+	for _, record := range records {
+		if _, err := statement.Exec(record.Path, record.SHA256, record.SHA256, record.Mode, record.Size, now); err != nil {
+			return fmt.Errorf("update applied file %s: %w", record.Path, err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit state update: %w", err)
+	}
+	return nil
+}
+
 func replaceStateRecords(db *sql.DB, records []FileRecord) error {
 	tx, err := db.Begin()
 	if err != nil {

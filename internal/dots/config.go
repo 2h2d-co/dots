@@ -14,11 +14,13 @@ import (
 const (
 	configEnv  = "DOTS_CONFIG"
 	profileEnv = "DOTS_PROFILE"
+	pagerEnv   = "DOTS_PAGER"
 )
 
 // Config is the on-disk dots configuration.
 type Config struct {
 	DefaultProfile string            `toml:"default_profile"`
+	Pager          string            `toml:"pager,omitempty"`
 	Profiles       map[string]string `toml:"profiles"`
 }
 
@@ -34,6 +36,7 @@ type Runtime struct {
 	Profile            string
 	Home               string
 	StateDir           string
+	Pager              string
 	ConfiguredProfiles map[string]RuntimeProfile
 	ConfiguredRepos    []string
 }
@@ -86,6 +89,7 @@ func (a *App) resolveRuntime() (*Runtime, error) {
 		Profile:            profile,
 		Home:               home,
 		StateDir:           stateDir,
+		Pager:              cfg.Pager,
 		ConfiguredProfiles: profiles,
 		ConfiguredRepos:    repos,
 	}, nil

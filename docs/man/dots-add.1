@@ -10,7 +10,7 @@ dots-add - Copy a file or directory into the active profile
 
 
 .SH DESCRIPTION
-Copy a file or directory from the home directory into the active profile and update the profile tracking database. Directory adds also record the directory as a tracked root so future new files under it appear in status. Tracked directory roots may be nested. PATH defaults to the current directory. Paths inside any configured dots repo are refused. --dry-run lists the files and directory roots that would be added without copying files or updating the database.
+Copy a file or directory from the home directory into the active profile and update the profile tracking database and applied-state database for added files. Directory adds also record the directory as a tracked root so future new files under it appear in status. Tracked directory roots may be nested. PATH defaults to the current directory. Paths inside any configured dots repo are refused. --dry-run lists the files and directory roots that would be added without copying files or updating the database.
 
 
 .SH OPTIONS

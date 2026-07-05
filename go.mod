@@ -4,6 +4,7 @@ go 1.26.4
 
 require (
 	github.com/BurntSushi/toml v1.6.0
+	github.com/aymanbagabas/go-udiff v0.4.1
 	github.com/go-git/go-git/v5 v5.19.1
 	github.com/pressly/goose/v3 v3.27.2
 	github.com/spf13/cobra v1.10.2

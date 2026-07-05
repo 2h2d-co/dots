@@ -143,6 +143,37 @@ func TestStateDBCatalogingAndForget(t *testing.T) {
 	assertTrackedDirs(t, dirs, []TrackedDirRecord{{Path: "keepdir"}})
 }
 
+func TestUpsertStateRecordsRefreshesSelectedPaths(t *testing.T) {
+	t.Parallel()
+
+	state := t.TempDir()
+	stateDB, err := openStateDB(state, "personal")
+	if err != nil {
+		t.Fatalf("openStateDB() error = %v", err)
+	}
+	defer func() { _ = stateDB.Close() }()
+
+	initial := []FileRecord{
+		{Path: "a", SHA256: "sha-a", Mode: 0o644, Size: 1},
+		{Path: "b", SHA256: "sha-b", Mode: 0o755, Size: 2},
+	}
+	if err := replaceStateRecords(stateDB, initial); err != nil {
+		t.Fatalf("replaceStateRecords() error = %v", err)
+	}
+	if err := upsertStateRecords(stateDB, []FileRecord{{Path: "a", SHA256: "sha-a2", Mode: 0o600, Size: 3}}); err != nil {
+		t.Fatalf("upsertStateRecords() error = %v", err)
+	}
+
+	stateRecords, err := listStateRecords(stateDB)
+	if err != nil {
+		t.Fatalf("listStateRecords() error = %v", err)
+	}
+	assertStateRecords(t, stateRecords, []StateRecord{
+		{Path: "a", SHA256: "sha-a2", RepoSHA: "sha-a2", Mode: 0o600, Size: 3},
+		{Path: "b", SHA256: "sha-b", RepoSHA: "sha-b", Mode: 0o755, Size: 2},
+	})
+}
+
 func TestOpenDBRejectsMismatchedProfileMetadata(t *testing.T) {
 	t.Parallel()
 

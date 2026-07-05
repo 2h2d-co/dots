@@ -23,10 +23,7 @@ func applyProfile(rt *Runtime, opts applyOptions, out io.Writer) error {
 		if err := writeStatusReport(out, report); err != nil {
 			return err
 		}
-		if _, err := fmt.Fprintln(out, "Apply aborted: profile files differ from the tracking database."); err != nil {
-			return err
-		}
-		if _, err := fmt.Fprintln(out, "Verify the repo, then run `dots reindex` if the profile files are intended."); err != nil {
+		if err := writeRepoDriftRefusal(out, "Apply"); err != nil {
 			return err
 		}
 		return ExitError{Code: 1, Silent: true}
@@ -103,6 +100,14 @@ func applyProfile(rt *Runtime, opts applyOptions, out io.Writer) error {
 		}
 	}
 	return nil
+}
+
+func writeRepoDriftRefusal(out io.Writer, operation string) error {
+	if _, err := fmt.Fprintf(out, "%s aborted: profile files differ from the tracking database.\n", operation); err != nil {
+		return err
+	}
+	_, err := fmt.Fprintln(out, "Verify the repo, then run `dots reindex` if the profile files are intended.")
+	return err
 }
 
 func applyWritePaths(report statusReport, opts applyOptions) map[string]struct{} {

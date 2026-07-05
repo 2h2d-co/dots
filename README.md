@@ -22,6 +22,8 @@ dots add ~/.config/nvim
 
 # Preview and apply tracked files back into $HOME.
 dots status
+dots diff
+dots diff | hunk patch -
 dots apply --dry-run
 dots apply
 ```
@@ -29,8 +31,9 @@ dots apply
 ## Commands
 
 - `dots init REPO --profile PROFILE`: initialize config or add one configured profile, then create its profile directory and SQLite tracking databases.
-- `dots add [--dry-run] [PATH]`: copy a file or directory from `$HOME` into the active profile and update the profile database. Directory adds also record the directory as a tracked root, so future new files under it appear in status. Tracked directory roots may be nested. `PATH` defaults to the current directory. Paths inside any configured dots repo are refused. `--dry-run` lists the files and directory roots that would be added without copying files or updating the database.
+- `dots add [--dry-run] [PATH]`: copy a file or directory from `$HOME` into the active profile and update the profile and applied-state databases for the added files. Directory adds also record the directory as a tracked root, so future new files under it appear in status. Tracked directory roots may be nested. `PATH` defaults to the current directory. Paths inside any configured dots repo are refused. `--dry-run` lists the files and directory roots that would be added without copying files or updating the database.
 - `dots apply [--dry-run] [--force]`: apply tracked profile files back to `$HOME` after a full preflight check. Destinations that already match the profile are left untouched and only recorded in applied state. `--force` backs up conflicting destinations before overwriting.
+- `dots diff [--sync] [--no-pager]`: print a git-style unified diff for what `dots apply --force` would change. `--sync` previews the future home-to-repo sync direction. Patch text goes to stdout; notes and refusals go to stderr so output can be piped to tools such as `hunk`.
 - `dots status`: show profile drift, tracked-directory drift, pending changes, destination conflicts, and stale applied state for the active profile.
 - `dots doctor`: run status checks for all configured profiles, or only the overridden profile when `--profile` or `DOTS_PROFILE` is set.
 - `dots list`: list tracked files in the active profile.
@@ -48,6 +51,7 @@ dots apply
 
   ```toml
   default_profile = "personal"
+  # pager = "hunk patch --pager -"
 
   [profiles]
   personal = "~/dotfiles"
@@ -55,10 +59,12 @@ dots apply
   ```
 
 - `DOTS_PROFILE=PROFILE` and `--profile PROFILE` override the active profile; the flag wins over the environment variable and `default_profile`.
+- `DOTS_PAGER=COMMAND` overrides the optional `pager` config key for `dots diff`; `dots diff --no-pager` disables paging. The pager is used only when stdout is a terminal and the diff is non-empty.
 - Profiles are top-level folders in their configured repo directory.
 - Each profile has a top-level SQLite DB in the repo that catalogs tracked files, tracked directory roots, file modes, sizes, and SHA-256 sums.
 - Last applied state is tracked in `${XDG_STATE_HOME:-$HOME/.local/state}/dots/{profile}.db`.
 - `dots add` refuses paths inside any repo configured in the active config.
+- `dots add` records applied state for added files because the home file and repo copy match at add time.
 
 ## File handling
 
@@ -76,6 +82,7 @@ dots apply
 - Destination files that already match the profile are left untouched; apply only refreshes the applied-state database for those paths.
 - Without `--force`, apply exits without changing files when it finds destination conflicts.
 - With `--force`, apply moves conflicting destinations into `${XDG_STATE_HOME:-$HOME/.local/state}/dots/backups/{profile}/...` before overwriting.
+- `dots diff` is read-only. It exits `0` when it has no patchable differences or notes, and `1` when it prints a patch, emits an excluded-conflict note, or refuses because profile files drifted from the tracking database.
 - `dots status` and `dots doctor` exit `0` when clean and `1` when drift, directory drift, pending changes, conflicts, or stale state need attention.
 
 ## Excluded functionality
