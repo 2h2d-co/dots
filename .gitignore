@@ -43,8 +43,9 @@ go.work.sum
 *.swp
 *.swo
 
-# Agent-local notes and roadmap
+# Agent-local notes, plans, and roadmap
 DESIRES.md
 LEARNINGS.md
 MISTAKES.md
 roadmap.md
+/plan/
