@@ -1,12 +1,19 @@
-# AGENTS.md
-
-Guidance for coding agents working on `github.com/2h2d-co/dots`.
-
-## Project intent
+# dots CLI Project Instructions
 
 `dots` is a Go-based, minimal, copy-only dotfiles manager: a deliberately limited and lightweight alternative to `chezmoi`.
 
-Core constraints:
+## Conventions
+
+- Format commit messages according to [Conventional Commits](https://www.conventionalcommits.org/).
+- Maintain `CHANGELOG.md` using the [Keep a Changelog](https://keepachangelog.com/) style.
+- Add changelog entries for changes whose commit would be `feat:` or `fix:`; keep entries under `Unreleased` until a release is made.
+- Release commits should do the following:
+  - update the project version;
+  - move `Unreleased` changelog entries into the new release section;
+  - commit with `release: vX.Y.Z` as the commit message;
+  - tag the release with the matching `vX.Y.Z` tag.
+
+## Core Constraints
 
 - Global config only: `$XDG_CONFIG_HOME/dots/config.toml`, falling back to `~/.config/dots/config.toml`.
 - `--config PATH` and `DOTS_CONFIG=PATH` override the config path.
@@ -66,10 +73,6 @@ If mise config is untrusted in a non-interactive harness, run commands with:
 ```sh
 export MISE_TRUSTED_CONFIG_PATHS=$PWD
 ```
-
-## Commit conventions
-
-- Use Conventional Commits for commit messages, such as `feat: add grouped status output` or `fix: reject unsupported tracked files`.
 
 ## Documentation/metadata
 
