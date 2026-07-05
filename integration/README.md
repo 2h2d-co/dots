@@ -6,6 +6,9 @@ The integration suite should exercise `dots` end to end without touching real us
 
 ```sh
 go test -v -count=1 -tags=integration ./integration
+
+# Run top-level integration tests in parallel.
+go test -v -count=1 -tags=integration -parallel=8 ./integration
 ```
 
 ## Scope
@@ -21,9 +24,10 @@ The suite covers:
 - profile-scoped tracking under top-level repo profile folders
 - repo profile DB SHA-256 cataloging
 - copy-only apply with dry-run, conflict detection, destination type conflicts, force overwrite, and backups
+- copy-only sync with dry-run, state refreshes, tracked-root additions, conflict aborts, force repo backups, repo-drift refusal, and diff-preview parity
 - last-applied state DB updates
 - status exit codes, drift reporting, grouped tracked-root output, individual path output, and new files under tracked directory roots
 - doctor drift checks across all configured profiles and profile overrides
 - list/reindex/forget behavior
-- reindex refusal when a configured git upstream has changes to pull
+- reindex and sync refusal when a configured git upstream has changes to pull
 - unusual path names with spaces and Unicode
