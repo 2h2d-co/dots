@@ -29,6 +29,16 @@
 - Preserve regular file contents, relative paths, and executable bits.
 - Reject symlinks, sockets, devices, and FIFOs.
 
+## Database migrations
+
+- Maintain SQLite schemas through embedded `pressly/goose` migrations under `internal/dots/migrations/repo` and `internal/dots/migrations/state`.
+- Add a new numbered migration file for schema changes; do not edit already-applied migration files except before the first release that contains them.
+- Keep repo DB and state DB migrations separate. Repo DB migrations apply to `{repo}/{profile}.db`; state DB migrations apply to `${XDG_STATE_HOME:-$HOME/.local/state}/dots/{profile}.db`.
+- Keep schema creation and schema changes in migrations rather than ad-hoc table or column creation in command code.
+- Preserve and validate `meta.profile` metadata for both database types.
+- Update unit and integration tests when migration versions or schema expectations change, including upgrade coverage from older on-disk databases.
+- Ensure commands that open databases continue to use `openRepoDB`, `openStateDB`, `ensureRepoDB`, or `ensureStateDB` so migrations run automatically.
+
 ## Command scope
 
 Maintain integration-test coverage for this command surface:
