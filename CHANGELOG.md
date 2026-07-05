@@ -6,6 +6,13 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) st
 
 ## Unreleased
 
+## [0.0.2] - 2026-07-05
+
+### Added
+
+- Added `dots add --dry-run` to preview files and directory roots without copying files or updating the profile database.
+- Added tracked directory roots so directory adds report future new destination files in status, including support for nested tracked roots.
+
 ### Changed
 
 - Changed config from single `repo`/`profile` keys to `default_profile` plus a `[profiles]` table so one config can manage multiple profile/repo pairs. Migrate from:
@@ -26,8 +33,9 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) st
 
 - Changed `dots init` to add a new configured profile to an existing config, while refusing duplicate profile names and pre-existing profile repo/state databases.
 - Changed `dots doctor` to check all configured profiles across configured repos unless a profile override is set.
-- Changed the release workflow to attest `checksums.txt` alongside release archives.
+- Changed `dots apply` to leave matching destination files untouched and only refresh applied-state records for those paths.
 - Changed repo and state database setup to use embedded `pressly/goose` SQLite migrations and reject databases with mismatched profile metadata.
+- Changed the release workflow to attest `checksums.txt` alongside release archives.
 
 ### Security
 
