@@ -20,7 +20,8 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) st
 
 ### Security
 
-- Added pinned Gitleaks scanning for home-to-repo content and deterministic npm auth-token line scrubbing so npm auth tokens are not copied into profile repos.
+- Added Gitleaks-based secret scanning before files are copied from `$HOME` into a profile repo.
+- Added npm auth token scrubbing so detected tokens are not stored in the repo.
 
 ## [0.0.2] - 2026-07-05
 
