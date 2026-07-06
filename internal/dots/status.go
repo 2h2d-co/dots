@@ -102,11 +102,29 @@ func analyzeStatusWithDB(rt *Runtime, repoDB, stateDB *sql.DB) (statusReport, []
 	}
 
 	profileRoot := profileDir(rt)
+	repoIgnore, err := newRepoGitIgnoreMatcher(rt.Repo)
+	if err != nil {
+		return statusReport{}, nil, err
+	}
 	if err := filepath.WalkDir(profileRoot, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if path == profileRoot {
+			return nil
+		}
+		repoRel, err := filepath.Rel(rt.Repo, path)
+		if err != nil {
+			return err
+		}
+		ignored, err := repoIgnore.ignored(repoRel, entry.IsDir())
+		if err != nil {
+			return err
+		}
+		if ignored {
+			if entry.IsDir() {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 		if entry.IsDir() {

@@ -94,6 +94,29 @@ func TestAnalyzeStatusClassifiesChanges(t *testing.T) {
 	assertStatusItem(t, report.State, kindStaleState, "stale-state")
 }
 
+func TestAnalyzeStatusSkipsGitIgnoredUntrackedProfileFiles(t *testing.T) {
+	t.Parallel()
+
+	rt := newStatusTestRuntime(t)
+	tracked := writeRepoTrackedFile(t, rt, ".config/app/tracked.pyc", "old\n")
+	writeUnitFile(t, filepath.Join(rt.Repo, ".gitignore"), "__pycache__/\n*.py[cod]\n", 0o644)
+	writeUnitFile(t, repoFilePath(rt, ".config/app/tracked.pyc"), "new\n", 0o644)
+	writeUnitFile(t, repoFilePath(rt, ".config/app/__pycache__/module.cache"), "ignored directory\n", 0o644)
+	writeUnitFile(t, repoFilePath(rt, ".config/app/script.pyc"), "ignored file\n", 0o644)
+	writeUnitFile(t, repoFilePath(rt, ".config/app/new.txt"), "visible\n", 0o644)
+	populateStatusDatabases(t, rt, []FileRecord{tracked}, nil)
+
+	report, _, err := analyzeStatus(rt)
+	if err != nil {
+		t.Fatalf("analyzeStatus() error = %v", err)
+	}
+
+	assertStatusItem(t, report.Repo, kindRepoModified, ".config/app/tracked.pyc")
+	assertStatusItem(t, report.Repo, kindRepoUntracked, ".config/app/new.txt")
+	assertNoStatusItem(t, report.Repo, kindRepoUntracked, ".config/app/__pycache__/module.cache")
+	assertNoStatusItem(t, report.Repo, kindRepoUntracked, ".config/app/script.pyc")
+}
+
 func TestAnalyzeStatusReportsUntrackedFilesInTrackedDirectories(t *testing.T) {
 	t.Parallel()
 

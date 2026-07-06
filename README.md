@@ -79,6 +79,7 @@ dots sync
 - `.dotsignore` in an added directory excludes matching paths from copy/tracking and is itself copied.
 - Ignore patterns from that top-level `.dotsignore` apply to nested paths under the added directory.
 - New destination files under a tracked directory root are reported by `dots status` until they are synced, added directly, or ignored.
+- Git-ignored untracked profile files are omitted from `dots status`; tracked profile files are still checked even when they match `.gitignore` rules.
 - Tracked directory roots may be nested; status output groups paths by the most specific tracked root, with directly tracked files shown under `Individual paths`.
 - Nested `.dotsignore` files are treated as regular files when they are not ignored; they do not add more ignore rules.
 - `dots sync` never deletes profile files for missing destinations; use `dots forget` explicitly when tracking should stop.
