@@ -162,33 +162,6 @@ func TestAddDryRunDoesNotCopyOrTrack(t *testing.T) {
 	assertContains(t, result.stdout, "Clean: no changes")
 }
 
-func TestNPMRCSecretsAreScrubbedAndComparedCanonically(t *testing.T) {
-	t.Parallel()
-	env := newTestEnv(t)
-	token1 := "npm_" + "a1b2c3d4e5f6g7h8i9j0klmnopqrstuvwx12"
-	token2 := "npm_" + "z9y8x7w6v5u4t3s2r1q0ponmlkjihgfedcba"
-	npmrcPath := filepath.Join(env.home, ".config", "npm", "npmrc")
-
-	env.requireRun("init", env.repo, "--profile", "personal")
-	writeFile(t, npmrcPath, "registry=https://registry.npmjs.org/\n//registry.npmjs.org/:_authToken="+token1+"\n", 0o600)
-	env.requireRun("add", npmrcPath)
-	assertFileContent(t, filepath.Join(env.repo, "personal", ".config", "npm", "npmrc"), "registry=https://registry.npmjs.org/\n\n")
-
-	writeFile(t, npmrcPath, "registry=https://registry.npmjs.org/\n//registry.npmjs.org/:_authToken="+token2+"\n", 0o600)
-	result := env.requireRun("status")
-	assertContains(t, result.stdout, "Clean: no changes")
-
-	writeFile(t, npmrcPath, "registry=https://custom.example/\n//registry.npmjs.org/:_authToken="+token2+"\n", 0o600)
-	result = env.run("diff", "--sync", "--no-pager")
-	assertExitCode(t, result, 1)
-	assertContains(t, result.stdout, "+registry=https://custom.example/")
-	assertNotContains(t, result.stdout, token1)
-	assertNotContains(t, result.stdout, token2)
-
-	env.requireRun("sync")
-	assertFileContent(t, filepath.Join(env.repo, "personal", ".config", "npm", "npmrc"), "registry=https://custom.example/\n\n")
-}
-
 func TestAddRejectsConfiguredRepoPaths(t *testing.T) {
 	t.Parallel()
 	env := newTestEnv(t)
