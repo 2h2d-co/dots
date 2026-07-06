@@ -6,6 +6,8 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) st
 
 ## Unreleased
 
+## [0.0.4] - 2026-07-06
+
 ### Fixed
 
 - Omit git-ignored untracked profile files from `dots status` repo drift reports.
