@@ -16,6 +16,7 @@ const binaryProbeBytes = 8000
 type diffOptions struct {
 	Sync             bool
 	NoPager          bool
+	Paths            []string
 	stdoutIsTerminal func() bool
 	runPager         pagerRunner
 }
@@ -40,11 +41,21 @@ type diffNote struct {
 }
 
 func diffProfile(rt *Runtime, opts diffOptions, out, errOut io.Writer) error {
-	report, records, err := analyzeStatus(rt)
+	scope, err := newPathScope(rt, opts.Paths)
 	if err != nil {
 		return err
 	}
-	if report.hasRepoDrift() {
+	var report statusReport
+	var records []FileRecord
+	if opts.Sync {
+		report, records, err = analyzeSyncStatus(rt, scope)
+	} else {
+		report, records, _, err = analyzeApplyStatus(rt, scope)
+	}
+	if err != nil {
+		return err
+	}
+	if report.hasRepoDrift() && (!scope.active() || !opts.Sync) {
 		if err := writeStatusReport(errOut, report); err != nil {
 			return err
 		}
@@ -136,6 +147,10 @@ func buildSyncDiffPlan(rt *Runtime, report statusReport, records []FileRecord) (
 	if err != nil {
 		return diffPlan{}, err
 	}
+	if err := addRepoDriftToSyncPlan(rt, report, true, &syncPlan); err != nil {
+		return diffPlan{}, err
+	}
+	syncPlan.sort()
 	plan := diffPlan{}
 	for _, item := range syncPlan.Updates {
 		entry, err := syncUpdateDiffEntry(rt, item.Path, item.Record)

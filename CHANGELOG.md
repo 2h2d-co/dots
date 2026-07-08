@@ -6,6 +6,14 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) st
 
 ## Unreleased
 
+### Added
+
+- Added optional `PATH` scopes to `dots apply`, `dots sync`, and `dots diff` so individual tracked files and tracked-root subtrees can be handled without unrelated profile drift or conflicts blocking the command.
+
+### Changed
+
+- Clarified repo-drift refusal text to explain that `dots reindex` accepts current profile repo files as tracked state.
+
 ## [0.0.4] - 2026-07-06
 
 ### Fixed

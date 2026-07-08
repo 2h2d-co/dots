@@ -10,6 +10,7 @@ import (
 type syncOptions struct {
 	DryRun bool
 	Force  bool
+	Paths  []string
 }
 
 type syncPlan struct {
@@ -43,11 +44,15 @@ type syncPreparedWrite struct {
 }
 
 func syncProfile(rt *Runtime, opts syncOptions, out io.Writer) error {
-	report, records, err := analyzeStatus(rt)
+	scope, err := newPathScope(rt, opts.Paths)
 	if err != nil {
 		return err
 	}
-	if report.hasRepoDrift() {
+	report, records, err := analyzeSyncStatus(rt, scope)
+	if err != nil {
+		return err
+	}
+	if report.hasRepoDrift() && !scope.active() {
 		if err := writeStatusReport(out, report); err != nil {
 			return err
 		}
@@ -60,6 +65,12 @@ func syncProfile(rt *Runtime, opts syncOptions, out io.Writer) error {
 	plan, err := buildSyncPlan(report, records, opts.Force)
 	if err != nil {
 		return err
+	}
+	if scope.active() {
+		if err := addRepoDriftToSyncPlan(rt, report, opts.Force, &plan); err != nil {
+			return err
+		}
+		plan.sort()
 	}
 	if opts.DryRun {
 		if err := writeSyncPlan(out, report, plan, opts); err != nil {
@@ -215,6 +226,78 @@ func buildSyncPlan(report statusReport, records []FileRecord, force bool) (syncP
 	return plan, nil
 }
 
+func addRepoDriftToSyncPlan(rt *Runtime, report statusReport, force bool, plan *syncPlan) error {
+	driftPaths := make(map[string]struct{})
+	for _, item := range report.Repo {
+		driftPaths[item.Path] = struct{}{}
+	}
+	removeSyncPlanPaths(plan, driftPaths)
+
+	for _, item := range report.Repo {
+		switch item.Kind {
+		case kindRepoModified, kindRepoUntracked:
+			if _, _, err := destinationCanonicalFingerprint(item.Path, destinationPath(rt, item.Path)); err != nil {
+				plan.Notes = append(plan.Notes, syncPlanNote{Path: item.Path, Kind: item.Kind, Detail: err.Error(), Text: syncNoteText(item)})
+				continue
+			}
+			record, err := fileRecord(profileDir(rt), item.Path)
+			if err != nil {
+				return err
+			}
+			planItem := syncPlanItem{Path: item.Path, Kind: item.Kind, Record: record, RequiresForce: true}
+			if force {
+				plan.Updates = append(plan.Updates, planItem)
+			} else {
+				plan.Conflicts = append(plan.Conflicts, planItem)
+			}
+		case kindRepoMissing:
+			if _, _, err := destinationCanonicalFingerprint(item.Path, destinationPath(rt, item.Path)); err != nil {
+				plan.Notes = append(plan.Notes, syncPlanNote{Path: item.Path, Kind: item.Kind, Detail: item.Detail, Text: syncNoteText(item)})
+				continue
+			}
+			plan.Adds = append(plan.Adds, syncPlanItem{Path: item.Path, Kind: item.Kind})
+		case kindRepoUnsupported:
+			plan.Notes = append(plan.Notes, syncPlanNote{Path: item.Path, Kind: item.Kind, Detail: item.Detail, Text: syncNoteText(item)})
+		}
+	}
+	return nil
+}
+
+func removeSyncPlanPaths(plan *syncPlan, paths map[string]struct{}) {
+	plan.Updates = filterSyncPlanItems(plan.Updates, paths)
+	plan.Adds = filterSyncPlanItems(plan.Adds, paths)
+	plan.StateOnly = filterSyncPlanItems(plan.StateOnly, paths)
+	plan.Conflicts = filterSyncPlanItems(plan.Conflicts, paths)
+	plan.Omitted = filterSyncPlanItems(plan.Omitted, paths)
+	plan.Notes = filterSyncPlanNotes(plan.Notes, paths)
+}
+
+func filterSyncPlanItems(items []syncPlanItem, paths map[string]struct{}) []syncPlanItem {
+	if len(paths) == 0 {
+		return items
+	}
+	filtered := items[:0]
+	for _, item := range items {
+		if _, ok := paths[item.Path]; !ok {
+			filtered = append(filtered, item)
+		}
+	}
+	return filtered
+}
+
+func filterSyncPlanNotes(notes []syncPlanNote, paths map[string]struct{}) []syncPlanNote {
+	if len(paths) == 0 {
+		return notes
+	}
+	filtered := notes[:0]
+	for _, note := range notes {
+		if _, ok := paths[note.Path]; !ok {
+			filtered = append(filtered, note)
+		}
+	}
+	return filtered
+}
+
 func prepareSyncWrites(rt *Runtime, plan syncPlan) ([]syncPreparedWrite, error) {
 	items := make([]syncPlanItem, 0, len(plan.Updates)+len(plan.Adds))
 	items = append(items, plan.Updates...)
@@ -316,6 +399,12 @@ func syncNoteText(item statusItem) string {
 	switch item.Kind {
 	case kindPendingCreate:
 		return fmt.Sprintf("%s is missing from $HOME; sync will not delete repo files, use `dots forget %s` if tracking should stop", item.Path, item.Path)
+	case kindRepoModified, kindRepoUntracked:
+		return fmt.Sprintf("%s has profile repo drift but $HOME has no regular file to sync", item.Path)
+	case kindRepoMissing:
+		return fmt.Sprintf("%s is missing from the profile repo and cannot be restored because $HOME has no regular file to sync", item.Path)
+	case kindRepoUnsupported:
+		return fmt.Sprintf("profile repo path is not a regular file: %s", item.Path)
 	case kindConflictType:
 		if item.Detail != "" {
 			return fmt.Sprintf("destination is not a regular file: %s (%s)", item.Path, item.Detail)

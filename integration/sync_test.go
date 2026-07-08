@@ -169,7 +169,7 @@ func TestSyncRefusesRepoDriftBeforeMutation(t *testing.T) {
 	assertExitCode(t, result, 1)
 	assertContains(t, result.stdout, "Repo drift:")
 	assertContains(t, result.stdout, "profile file changed: .driftrc")
-	assertContains(t, result.stdout, "Sync aborted: profile files differ from the tracking database.")
+	assertContains(t, result.stdout, "Sync aborted: profile repo files changed since dots last indexed them.")
 	assertContains(t, result.stdout, "dots reindex")
 	assertFileContent(t, filepath.Join(env.repo, "personal", ".changedrc"), "changed base\n")
 	assertFileContent(t, filepath.Join(env.repo, "personal", ".driftrc"), "repo drift\n")

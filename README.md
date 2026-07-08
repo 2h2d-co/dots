@@ -26,9 +26,13 @@ dots diff
 dots diff | hunk patch -
 dots apply --dry-run
 dots apply
+# Limit apply/diff/sync to one tracked root or file when resolving a focused change.
+dots diff ~/.config/git
+dots apply ~/.config/git/config
 
 # After editing files in $HOME, record allowed destination changes back into the profile.
 dots diff --sync
+dots diff --sync ~/.config/mise/mise.lock
 dots sync --dry-run
 dots sync
 ```
@@ -37,9 +41,9 @@ dots sync
 
 - `dots init REPO --profile PROFILE`: initialize config or add one configured profile, then create its profile directory and SQLite tracking databases.
 - `dots add [--dry-run] [PATH]`: copy a file or directory from `$HOME` into the active profile and update the profile and applied-state databases for the added files. Directory adds also record the directory as a tracked root, so future new files under it appear in status. Tracked directory roots may be nested. `PATH` defaults to the current directory. Paths inside any configured dots repo are refused. Home-to-repo content is scanned with pinned Gitleaks rules; supported npm auth token findings and npmrc auth lines are scrubbed before writing, and remaining findings abort before changes. `--dry-run` lists the files and directory roots that would be added without copying files or updating the database.
-- `dots apply [--dry-run] [--force]`: apply tracked profile files back to `$HOME` after a full preflight check. Destinations whose scrubbed canonical content already matches the profile are left untouched and only recorded in applied state, preserving local-only credentials. `--force` backs up conflicting destinations before overwriting.
-- `dots sync [--dry-run] [--force]`: copy destination changes and new files under tracked roots back into the active profile, refreshing applied state for files it records. Home-to-repo content is scanned with pinned Gitleaks rules; supported npm auth token findings and npmrc auth lines are scrubbed before writing, and remaining findings abort before changes. Plain sync refuses destination/profile conflicts; `--force` backs up conflicting repo files and takes the destination side.
-- `dots diff [--sync] [--no-pager]`: print a git-style unified diff for what `dots apply --force` would change. Destination-side content is canonicalized with the same secret scrubbing used by add and sync so patches do not expose scrubbed local credentials. `--sync` previews what `dots sync --force` would change. Patch text goes to stdout; notes and refusals go to stderr so output can be piped to tools such as `hunk`.
+- `dots apply [--dry-run] [--force] [PATH...]`: apply tracked profile files back to `$HOME` after a preflight check. `PATH` arguments limit apply to matching tracked files or tracked-root subtrees. Scoped apply accepts selected profile repo drift as the current tracked repo state before applying it. Destinations whose scrubbed canonical content already matches the profile are left untouched and only recorded in applied state, preserving local-only credentials. `--force` backs up conflicting destinations before overwriting.
+- `dots sync [--dry-run] [--force] [PATH...]`: copy destination changes and new files under tracked roots back into the active profile, refreshing applied state for files it records. `PATH` arguments limit sync to matching tracked files, tracked-root subtrees, or new destination files under tracked roots. Scoped sync can resolve selected profile repo drift by backing up conflicting repo files with `--force` and taking the destination side. Home-to-repo content is scanned with pinned Gitleaks rules; supported npm auth token findings and npmrc auth lines are scrubbed before writing, and remaining findings abort before changes. Plain sync refuses destination/profile conflicts; `--force` backs up conflicting repo files and takes the destination side.
+- `dots diff [--sync] [--no-pager] [PATH...]`: print a git-style unified diff for what `dots apply --force` would change. `PATH` arguments limit diff to matching tracked files, tracked-root subtrees, or new destination files under tracked roots. Scoped apply-direction diff reads selected profile repo drift as the current repo side; scoped `--sync` diff previews taking the destination side for selected repo drift. Destination-side content is canonicalized with the same secret scrubbing used by add and sync so patches do not expose scrubbed local credentials. `--sync` previews what `dots sync --force` would change. Patch text goes to stdout; notes and refusals go to stderr so output can be piped to tools such as `hunk`.
 - `dots status`: show profile drift, tracked-directory drift, pending changes, destination conflicts, and stale applied state for the active profile. Supported secret-scrubbed paths are compared by canonical content, so local-only npm auth token changes do not create drift.
 - `dots doctor`: run status checks for all configured profiles, or only the overridden profile when `--profile` or `DOTS_PROFILE` is set.
 - `dots list`: list tracked files in the active profile.
@@ -88,12 +92,14 @@ dots sync
 
 ## Safety and exits
 
-- `dots apply` checks the complete profile before changing any destination file.
+- `dots apply`, `dots sync`, and `dots diff` accept optional `PATH` scopes. A scope can be a tracked file, a tracked root, a subtree under a tracked root, or an absolute/home-relative spelling of one.
+- `dots apply` checks the selected scope before changing any destination file; without `PATH` arguments it checks the complete profile.
 - Destination files that already match the profile are left untouched; apply only refreshes the applied-state database for those paths.
 - Without `--force`, apply exits without changing files when it finds destination conflicts.
 - With `--force`, apply moves conflicting destinations into `${XDG_STATE_HOME:-$HOME/.local/state}/dots/backups/{profile}/{SET}/home/{ENTRY}/payload` before overwriting. Sync uses the same backup sets under `repo/{ENTRY}/payload` for conflicting repo files.
-- `dots sync` checks the complete profile before changing repo files. Without `--force`, it exits without changing files when destination/profile conflicts need an explicit side choice. Real sync runs also refuse when a configured git upstream has changes to pull; `--dry-run` stays local-only.
-- `dots diff` is read-only. It exits `0` when it has no patchable differences or notes, and `1` when it prints a patch, emits an excluded-conflict note, or refuses because profile files drifted from the tracking database.
+- `dots sync` checks the selected scope before changing repo files; without `PATH` arguments it checks the complete profile. Without `--force`, it exits without changing files when destination/profile conflicts need an explicit side choice. Real sync runs also refuse when a configured git upstream has changes to pull; `--dry-run` stays local-only.
+- Unscoped apply/sync/diff refuse profile repo drift. Scoped apply and apply-direction diff accept selected changed/untracked profile files as the repo side. Scoped sync and `diff --sync` can operate on selected repo drift; `sync --force PATH` backs up changed repo files and takes the destination side.
+- `dots diff` is read-only. It exits `0` when it has no patchable differences or notes, and `1` when it prints a patch, emits an excluded-conflict note, or refuses because profile repo files drifted from the tracking database.
 - `dots status` and `dots doctor` exit `0` when clean and `1` when drift, directory drift, pending changes, conflicts, or stale state need attention.
 
 ## Excluded functionality

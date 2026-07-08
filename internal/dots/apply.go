@@ -11,10 +11,15 @@ import (
 type applyOptions struct {
 	DryRun bool
 	Force  bool
+	Paths  []string
 }
 
 func applyProfile(rt *Runtime, opts applyOptions, out io.Writer) error {
-	report, records, err := analyzeStatus(rt)
+	scope, err := newPathScope(rt, opts.Paths)
+	if err != nil {
+		return err
+	}
+	report, records, repoUpdates, err := analyzeApplyStatus(rt, scope)
 	if err != nil {
 		return err
 	}
@@ -78,11 +83,27 @@ func applyProfile(rt *Runtime, opts applyOptions, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	if err := replaceStateRecords(stateDB, records); err != nil {
-		return errors.Join(err, stateDB.Close())
-	}
-	if err := stateDB.Close(); err != nil {
-		return err
+	if scope.active() {
+		repoDB, err := openRepoDB(rt.Repo, rt.Profile)
+		if err != nil {
+			return errors.Join(err, stateDB.Close())
+		}
+		if err := upsertRepoRecords(repoDB, repoUpdates); err != nil {
+			return errors.Join(err, repoDB.Close(), stateDB.Close())
+		}
+		if err := upsertStateRecords(stateDB, records); err != nil {
+			return errors.Join(err, repoDB.Close(), stateDB.Close())
+		}
+		if err := errors.Join(repoDB.Close(), stateDB.Close()); err != nil {
+			return err
+		}
+	} else {
+		if err := replaceStateRecords(stateDB, records); err != nil {
+			return errors.Join(err, stateDB.Close())
+		}
+		if err := stateDB.Close(); err != nil {
+			return err
+		}
 	}
 
 	untouched := len(records) - copied
@@ -98,10 +119,10 @@ func applyProfile(rt *Runtime, opts applyOptions, out io.Writer) error {
 }
 
 func writeRepoDriftRefusal(out io.Writer, operation string) error {
-	if _, err := fmt.Fprintf(out, "%s aborted: profile files differ from the tracking database.\n", operation); err != nil {
+	if _, err := fmt.Fprintf(out, "%s aborted: profile repo files changed since dots last indexed them.\n", operation); err != nil {
 		return err
 	}
-	_, err := fmt.Fprintln(out, "Verify the repo, then run `dots reindex` if the profile files are intended.")
+	_, err := fmt.Fprintln(out, "Run `dots reindex` to accept the current repo files as tracked state, or restore the repo files if those changes were unintended.")
 	return err
 }
 

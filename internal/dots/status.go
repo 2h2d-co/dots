@@ -1,7 +1,6 @@
 package dots
 
 import (
-	"database/sql"
 	"errors"
 	"fmt"
 	"io"
@@ -57,40 +56,54 @@ type statusGroup struct {
 	State     []statusItem
 }
 
-func analyzeStatus(rt *Runtime) (statusReport, []FileRecord, error) {
-	repoDB, err := openRepoDB(rt.Repo, rt.Profile)
-	if err != nil {
-		return statusReport{}, nil, err
-	}
-	defer func() { _ = repoDB.Close() }()
-	stateDB, err := openStateDB(rt.StateDir, rt.Profile)
-	if err != nil {
-		return statusReport{}, nil, err
-	}
-	defer func() { _ = stateDB.Close() }()
-
-	return analyzeStatusWithDB(rt, repoDB, stateDB)
+type statusInputs struct {
+	Records      []FileRecord
+	TrackedDirs  []TrackedDirRecord
+	StateRecords []StateRecord
 }
 
-func analyzeStatusWithDB(rt *Runtime, repoDB, stateDB *sql.DB) (statusReport, []FileRecord, error) {
-	records, err := listRepoRecords(repoDB)
+func analyzeStatus(rt *Runtime) (statusReport, []FileRecord, error) {
+	inputs, err := loadStatusInputs(rt)
 	if err != nil {
 		return statusReport{}, nil, err
+	}
+	return analyzeStatusFromInputs(rt, inputs)
+}
+
+func loadStatusInputs(rt *Runtime) (statusInputs, error) {
+	repoDB, err := openRepoDB(rt.Repo, rt.Profile)
+	if err != nil {
+		return statusInputs{}, err
+	}
+	stateDB, err := openStateDB(rt.StateDir, rt.Profile)
+	if err != nil {
+		return statusInputs{}, errors.Join(err, repoDB.Close())
+	}
+
+	records, err := listRepoRecords(repoDB)
+	if err != nil {
+		return statusInputs{}, errors.Join(err, repoDB.Close(), stateDB.Close())
 	}
 	trackedDirs, err := listTrackedDirs(repoDB)
 	if err != nil {
-		return statusReport{}, nil, err
+		return statusInputs{}, errors.Join(err, repoDB.Close(), stateDB.Close())
 	}
 	stateRecords, err := listStateRecords(stateDB)
 	if err != nil {
-		return statusReport{}, nil, err
+		return statusInputs{}, errors.Join(err, repoDB.Close(), stateDB.Close())
 	}
+	if err := errors.Join(repoDB.Close(), stateDB.Close()); err != nil {
+		return statusInputs{}, err
+	}
+	return statusInputs{Records: records, TrackedDirs: trackedDirs, StateRecords: stateRecords}, nil
+}
 
-	report := statusReport{Profile: rt.Profile, TrackedDirs: trackedDirs}
-	repoRecords := fileRecordMap(records)
-	stateRecordsByPath := stateRecordMap(stateRecords)
+func analyzeStatusFromInputs(rt *Runtime, inputs statusInputs) (statusReport, []FileRecord, error) {
+	report := statusReport{Profile: rt.Profile, TrackedDirs: inputs.TrackedDirs}
+	repoRecords := fileRecordMap(inputs.Records)
+	stateRecordsByPath := stateRecordMap(inputs.StateRecords)
 
-	for _, record := range records {
+	for _, record := range inputs.Records {
 		current, err := fileRecord(profileDir(rt), record.Path)
 		if err != nil {
 			classifyRepoRecordError(&report, record.Path, err)
@@ -154,11 +167,11 @@ func analyzeStatusWithDB(rt *Runtime, repoDB, stateDB *sql.DB) (statusReport, []
 		return statusReport{}, nil, fmt.Errorf("scan profile directory: %w", err)
 	}
 
-	if err := scanTrackedDirs(rt, trackedDirs, repoRecords, &report); err != nil {
+	if err := scanTrackedDirs(rt, inputs.TrackedDirs, repoRecords, &report); err != nil {
 		return statusReport{}, nil, err
 	}
 
-	for _, record := range records {
+	for _, record := range inputs.Records {
 		stateRecord, hasState := stateRecordsByPath[record.Path]
 		dest := destinationPath(rt, record.Path)
 		destSHA, destMode, err := destinationCanonicalFingerprint(record.Path, dest)
@@ -200,14 +213,14 @@ func analyzeStatusWithDB(rt *Runtime, repoDB, stateDB *sql.DB) (statusReport, []
 		}
 	}
 
-	for _, stateRecord := range stateRecords {
+	for _, stateRecord := range inputs.StateRecords {
 		if _, ok := repoRecords[stateRecord.Path]; !ok {
 			report.State = append(report.State, statusItem{Kind: kindStaleState, Path: stateRecord.Path})
 		}
 	}
 
 	report.sort()
-	return report, records, nil
+	return report, inputs.Records, nil
 }
 
 func scanTrackedDirs(rt *Runtime, trackedDirs []TrackedDirRecord, repoRecords map[string]FileRecord, report *statusReport) error {

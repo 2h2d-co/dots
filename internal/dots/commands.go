@@ -294,15 +294,16 @@ func (a *App) newAddCommand() *cobra.Command {
 func (a *App) newApplyCommand() *cobra.Command {
 	var opts applyOptions
 	cmd := &cobra.Command{
-		Use:   "apply",
+		Use:   "apply [PATH...]",
 		Short: "Preview or apply tracked files to the home directory",
-		Long:  "Preview tracked files from the active profile or apply needed changes to the home directory. Apply always performs a full preflight check before changing files; destinations whose scrubbed canonical content already matches the profile are left untouched and only recorded in applied state, preserving local-only credentials. --force backs up conflicting destinations before overwriting them.",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		Long:  "Preview tracked files from the active profile or apply needed changes to the home directory. With PATH arguments, apply is limited to matching tracked files or tracked-root subtrees. Scoped apply accepts selected profile repo drift as the current tracked repo state before applying it. Apply always performs a preflight check before changing files; destinations whose scrubbed canonical content already matches the profile are left untouched and only recorded in applied state, preserving local-only credentials. --force backs up conflicting destinations before overwriting them.",
+		Args:  cobra.ArbitraryArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
 			rt, err := a.resolveRuntime()
 			if err != nil {
 				return err
 			}
+			opts.Paths = args
 			return applyProfile(rt, opts, cmd.OutOrStdout())
 		},
 	}
@@ -314,15 +315,16 @@ func (a *App) newApplyCommand() *cobra.Command {
 func (a *App) newSyncCommand() *cobra.Command {
 	var opts syncOptions
 	cmd := &cobra.Command{
-		Use:   "sync",
+		Use:   "sync [PATH...]",
 		Short: "Copy changed home files back into the active profile",
-		Long:  "Reconcile the home-to-repo direction for the active profile. Sync copies destination changes and new files under tracked roots into the profile, refreshes applied-state rows for matching files, and refuses destination conflicts unless --force backs up conflicting repo files and takes the destination side. Home-to-repo content is scanned with pinned Gitleaks rules; supported npm auth token findings and npmrc auth lines are scrubbed before writing, and remaining findings abort before changes.",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		Long:  "Reconcile the home-to-repo direction for the active profile. With PATH arguments, sync is limited to matching tracked files, tracked-root subtrees, or new destination files under tracked roots. Scoped sync can resolve selected profile repo drift by backing up conflicting repo files with --force and taking the destination side. Sync copies destination changes and new files under tracked roots into the profile, refreshes applied-state rows for matching files, and refuses destination conflicts unless --force backs up conflicting repo files and takes the destination side. Home-to-repo content is scanned with pinned Gitleaks rules; supported npm auth token findings and npmrc auth lines are scrubbed before writing, and remaining findings abort before changes.",
+		Args:  cobra.ArbitraryArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
 			rt, err := a.resolveRuntime()
 			if err != nil {
 				return err
 			}
+			opts.Paths = args
 			return syncProfile(rt, opts, cmd.OutOrStdout())
 		},
 	}
@@ -334,15 +336,16 @@ func (a *App) newSyncCommand() *cobra.Command {
 func (a *App) newDiffCommand() *cobra.Command {
 	var opts diffOptions
 	cmd := &cobra.Command{
-		Use:   "diff",
+		Use:   "diff [PATH...]",
 		Short: "Show what apply or sync would change as a unified diff",
-		Long:  "Show a read-only git-style unified diff for what dots apply --force would change. Destination-side content is canonicalized with the same secret scrubbing used by add and sync so patches do not expose scrubbed local credentials. With --sync, preview what dots sync --force would change instead. Patch text is written to stdout; notes and refusals are written to stderr.",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		Long:  "Show a read-only git-style unified diff for what dots apply --force would change. With PATH arguments, diff is limited to matching tracked files, tracked-root subtrees, or new destination files under tracked roots. Scoped apply-direction diff reads selected profile repo drift as the current repo side; scoped --sync diff previews taking the destination side for selected repo drift. Destination-side content is canonicalized with the same secret scrubbing used by add and sync so patches do not expose scrubbed local credentials. With --sync, preview what dots sync --force would change instead. Patch text is written to stdout; notes and refusals are written to stderr.",
+		Args:  cobra.ArbitraryArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
 			rt, err := a.resolveRuntime()
 			if err != nil {
 				return err
 			}
+			opts.Paths = args
 			return diffProfile(rt, opts, cmd.OutOrStdout(), cmd.ErrOrStderr())
 		},
 	}

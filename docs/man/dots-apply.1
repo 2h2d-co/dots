@@ -6,11 +6,11 @@ dots-apply - Preview or apply tracked files to the home directory
 
 
 .SH SYNOPSIS
-\fBdots apply [flags]\fP
+\fBdots apply [PATH...] [flags]\fP
 
 
 .SH DESCRIPTION
-Preview tracked files from the active profile or apply needed changes to the home directory. Apply always performs a full preflight check before changing files; destinations whose scrubbed canonical content already matches the profile are left untouched and only recorded in applied state, preserving local-only credentials. --force backs up conflicting destinations before overwriting them.
+Preview tracked files from the active profile or apply needed changes to the home directory. With PATH arguments, apply is limited to matching tracked files or tracked-root subtrees. Scoped apply accepts selected profile repo drift as the current tracked repo state before applying it. Apply always performs a preflight check before changing files; destinations whose scrubbed canonical content already matches the profile are left untouched and only recorded in applied state, preserving local-only credentials. --force backs up conflicting destinations before overwriting them.
 
 
 .SH OPTIONS

@@ -107,7 +107,7 @@ func TestDiffTrackedRootCreateDeleteAndRepoDrift(t *testing.T) {
 		t.Fatalf("repo drift diff stdout = %q, want empty", result.stdout)
 	}
 	assertContains(t, result.stderr, "Repo drift:")
-	assertContains(t, result.stderr, "Diff aborted: profile files differ from the tracking database.")
+	assertContains(t, result.stderr, "Diff aborted: profile repo files changed since dots last indexed them.")
 	assertContains(t, result.stderr, "dots reindex")
 }
 
