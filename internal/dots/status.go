@@ -38,13 +38,14 @@ type statusItem struct {
 }
 
 type statusReport struct {
-	Profile     string
-	TrackedDirs []TrackedDirRecord
-	Repo        []statusItem
-	Directory   []statusItem
-	Pending     []statusItem
-	Conflict    []statusItem
-	State       []statusItem
+	Profile      string
+	TrackedFiles int
+	TrackedDirs  []TrackedDirRecord
+	Repo         []statusItem
+	Directory    []statusItem
+	Pending      []statusItem
+	Conflict     []statusItem
+	State        []statusItem
 }
 
 type statusGroup struct {
@@ -99,7 +100,7 @@ func loadStatusInputs(rt *Runtime) (statusInputs, error) {
 }
 
 func analyzeStatusFromInputs(rt *Runtime, inputs statusInputs) (statusReport, []FileRecord, error) {
-	report := statusReport{Profile: rt.Profile, TrackedDirs: inputs.TrackedDirs}
+	report := statusReport{Profile: rt.Profile, TrackedFiles: len(inputs.Records), TrackedDirs: inputs.TrackedDirs}
 	repoRecords := fileRecordMap(inputs.Records)
 	stateRecordsByPath := stateRecordMap(inputs.StateRecords)
 
@@ -367,13 +368,48 @@ func writeStatusReport(out io.Writer, report statusReport) error {
 		return err
 	}
 	if !report.dirty() {
-		_, err := fmt.Fprintln(out, "Clean: no changes")
-		return err
+		return writeCleanStatusReport(out, report)
 	}
 	if len(report.TrackedDirs) > 0 {
 		return writeGroupedStatusSections(out, report)
 	}
 	return writeFlatStatusSections(out, report)
+}
+
+func writeCleanStatusReport(out io.Writer, report statusReport) error {
+	trackedRootStatus := "no untracked files"
+	if len(report.TrackedDirs) == 0 {
+		trackedRootStatus = "none configured"
+	}
+	if _, err := fmt.Fprintln(out); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(out, "Checked:"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(out, "  Repo index: current"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(out, "  Home destinations: current"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(out, "  Tracked roots: %s\n", trackedRootStatus); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(out, "  Apply state: current"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(out); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(out, "Tracked:"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(out, "  Files: %d\n", report.TrackedFiles); err != nil {
+		return err
+	}
+	_, err := fmt.Fprintf(out, "  Roots: %d\n", len(report.TrackedDirs))
+	return err
 }
 
 func writeFlatStatusSections(out io.Writer, report statusReport) error {

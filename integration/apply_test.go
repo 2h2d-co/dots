@@ -64,15 +64,16 @@ func TestLifecycle(t *testing.T) {
 	assertNotContains(t, result.stdout, "ignored")
 
 	result = env.requireRun("status")
-	assertContains(t, result.stdout, "Clean: no changes")
+	assertContains(t, result.stdout, "Status: clean")
+	assertContains(t, result.stdout, "Repo index: current")
 
 	result = env.requireRun("apply", "--dry-run")
 	assertContains(t, result.stdout, "Apply plan (dry run; no files changed):")
-	assertContains(t, result.stdout, "Clean: no changes")
+	assertContains(t, result.stdout, "Status: clean")
 
 	env.requireRun("apply")
 	result = env.requireRun("status")
-	assertContains(t, result.stdout, "Clean: no changes")
+	assertContains(t, result.stdout, "Status: clean")
 
 	writeFile(t, filepath.Join(env.repo, "personal", ".zshrc"), "repo update\n", 0o644)
 	result = env.run("status")

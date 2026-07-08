@@ -23,7 +23,7 @@ func TestNPMRCSecretsAreScrubbedAndComparedCanonically(t *testing.T) {
 
 	writeFile(t, npmrcPath, "registry=https://registry.npmjs.org/\n//registry.npmjs.org/:_authToken="+npmValue2+"\n", 0o600)
 	result := env.requireRun("status")
-	assertContains(t, result.stdout, "Clean: no changes")
+	assertContains(t, result.stdout, "Status: clean")
 
 	writeFile(t, npmrcPath, "registry=https://custom.example/\n//registry.npmjs.org/:_authToken="+npmValue2+"\n", 0o600)
 	result = env.run("diff", "--sync", "--no-pager")
@@ -55,7 +55,7 @@ func TestNPMAuthTokenIsScrubbedInAnyFileEndToEnd(t *testing.T) {
 
 	writeFile(t, configPath, "before\ntoken="+npmValue2+"\nafter\n", 0o600)
 	result := env.requireRun("status")
-	assertContains(t, result.stdout, "Clean: no changes")
+	assertContains(t, result.stdout, "Status: clean")
 
 	writeFile(t, configPath, "before edited\ntoken="+npmValue2+"\nafter\n", 0o600)
 	result = env.run("diff", "--sync", "--no-pager")
@@ -107,7 +107,7 @@ func TestSecretScrubbingPreservesLocalTokenOnApply(t *testing.T) {
 	assertFileContent(t, homePath, "enabled=true\ntoken="+npmValue2+"\n")
 
 	result = env.requireRun("status")
-	assertContains(t, result.stdout, "Clean: no changes")
+	assertContains(t, result.stdout, "Status: clean")
 }
 
 func TestSecretScanBlocksUnsupportedAddWithoutLeaking(t *testing.T) {

@@ -50,7 +50,7 @@ func (s pathScope) filterReport(report statusReport) statusReport {
 	if !s.active() {
 		return report
 	}
-	filtered := statusReport{Profile: report.Profile, TrackedDirs: report.TrackedDirs}
+	filtered := statusReport{Profile: report.Profile, TrackedFiles: report.TrackedFiles, TrackedDirs: report.TrackedDirs}
 	filtered.Repo = s.filterStatusItems(report.Repo)
 	filtered.Directory = s.filterStatusItems(report.Directory)
 	filtered.Pending = s.filterStatusItems(report.Pending)

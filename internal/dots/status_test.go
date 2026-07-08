@@ -26,6 +26,9 @@ func TestAnalyzeStatusClean(t *testing.T) {
 	if report.dirty() {
 		t.Fatalf("report should be clean: %+v", report)
 	}
+	if report.TrackedFiles != 1 {
+		t.Fatalf("TrackedFiles = %d, want 1", report.TrackedFiles)
+	}
 }
 
 func TestAnalyzeStatusClassifiesChanges(t *testing.T) {
@@ -145,6 +148,68 @@ func TestAnalyzeStatusReportsUntrackedFilesInTrackedDirectories(t *testing.T) {
 	assertNoStatusItem(t, report.Directory, kindDirectoryUntracked, ".config/app/ignored")
 	assertNoStatusItem(t, report.Directory, kindDirectoryUntracked, ".config/app/cache/ignored")
 	assertNoStatusItem(t, report.Directory, kindDirectoryUntracked, ".config/app/ignored.tmp")
+}
+
+func TestWriteStatusReportCleanSummary(t *testing.T) {
+	t.Parallel()
+
+	report := statusReport{
+		Profile:      "personal",
+		TrackedFiles: 42,
+		TrackedDirs: []TrackedDirRecord{
+			{Path: ".config/git"},
+			{Path: ".config/mise"},
+			{Path: ".config/npm"},
+			{Path: ".config/zellij"},
+			{Path: ".ssh"},
+		},
+	}
+
+	var out bytes.Buffer
+	if err := writeStatusReport(&out, report); err != nil {
+		t.Fatalf("writeStatusReport() error = %v", err)
+	}
+	want := "Profile: personal\n" +
+		"Status: clean\n" +
+		"\n" +
+		"Checked:\n" +
+		"  Repo index: current\n" +
+		"  Home destinations: current\n" +
+		"  Tracked roots: no untracked files\n" +
+		"  Apply state: current\n" +
+		"\n" +
+		"Tracked:\n" +
+		"  Files: 42\n" +
+		"  Roots: 5\n"
+	if out.String() != want {
+		t.Fatalf("writeStatusReport() = %q, want %q", out.String(), want)
+	}
+}
+
+func TestWriteStatusReportCleanSummaryWithNoTrackedRoots(t *testing.T) {
+	t.Parallel()
+
+	report := statusReport{Profile: "personal", TrackedFiles: 1}
+
+	var out bytes.Buffer
+	if err := writeStatusReport(&out, report); err != nil {
+		t.Fatalf("writeStatusReport() error = %v", err)
+	}
+	want := "Profile: personal\n" +
+		"Status: clean\n" +
+		"\n" +
+		"Checked:\n" +
+		"  Repo index: current\n" +
+		"  Home destinations: current\n" +
+		"  Tracked roots: none configured\n" +
+		"  Apply state: current\n" +
+		"\n" +
+		"Tracked:\n" +
+		"  Files: 1\n" +
+		"  Roots: 0\n"
+	if out.String() != want {
+		t.Fatalf("writeStatusReport() = %q, want %q", out.String(), want)
+	}
 }
 
 func TestWriteStatusReportGroupsByMostSpecificTrackedRoot(t *testing.T) {

@@ -358,7 +358,7 @@ func (a *App) newStatusCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
 		Short: "Show profile drift, directory drift, pending changes, and conflicts",
-		Long:  "Compare the active profile database, profile files, tracked directory roots, applied-state database, and home-directory destination files. Supported secret-scrubbed paths are compared by canonical content, so local-only npm auth token changes do not create drift. When tracked roots are present, status output groups paths by the most specific tracked root and reports directly tracked files under Individual paths. A clean status exits 0; drift, pending changes, conflicts, directory drift, or stale state exit 1.",
+		Long:  "Compare the active profile database, profile files, tracked directory roots, applied-state database, and home-directory destination files. Supported secret-scrubbed paths are compared by canonical content, so local-only npm auth token changes do not create drift. When tracked roots are present, dirty status output groups paths by the most specific tracked root and reports directly tracked files under Individual paths. A clean status prints checked-area and tracked-count summaries and exits 0; drift, pending changes, conflicts, directory drift, or stale state exit 1.",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			rt, err := a.resolveRuntime()

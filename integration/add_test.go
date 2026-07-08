@@ -100,7 +100,7 @@ func TestAddStatusGroupsIndividualPathTrackedRootAndNestedRoot(t *testing.T) {
 	assertNotContains(t, result.stdout, "will adopt existing match")
 	env.requireRun("apply")
 	result = env.requireRun("status")
-	assertContains(t, result.stdout, "Clean: no changes")
+	assertContains(t, result.stdout, "Status: clean")
 }
 
 func TestAddDefaultsToCurrentDirectory(t *testing.T) {
@@ -159,7 +159,7 @@ func TestAddDryRunDoesNotCopyOrTrack(t *testing.T) {
 		t.Fatalf("list output = %q, want no tracked files after add dry-run", result.stdout)
 	}
 	result = env.requireRun("status")
-	assertContains(t, result.stdout, "Clean: no changes")
+	assertContains(t, result.stdout, "Status: clean")
 }
 
 func TestAddRejectsConfiguredRepoPaths(t *testing.T) {

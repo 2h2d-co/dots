@@ -52,7 +52,7 @@ func TestSyncCommand(t *testing.T) {
 		t.Fatalf("synced repo mode = %o, want 600", info.Mode().Perm())
 	}
 	result = env.requireRun("status")
-	assertContains(t, result.stdout, "Clean: no changes")
+	assertContains(t, result.stdout, "Status: clean")
 
 	if err := os.Remove(filepath.Join(env.home, ".zshrc")); err != nil {
 		t.Fatalf("remove tracked destination: %v", err)
@@ -97,7 +97,7 @@ func TestSyncConflictAbortIsAllOrNothingAndForceBacksUpRepo(t *testing.T) {
 	assertFileContent(t, filepath.Join(env.repo, "personal", ".conflictrc"), "home conflict\n")
 	assertBackupContainsOrigin(t, filepath.Join(env.state, "dots", "backups", "personal"), "repo", filepath.Join(".conflictrc"), "repo conflict\n")
 	result = env.requireRun("status")
-	assertContains(t, result.stdout, "Clean: no changes")
+	assertContains(t, result.stdout, "Status: clean")
 }
 
 func TestSyncIngestsUnmanagedDestinationWithForce(t *testing.T) {
@@ -128,7 +128,7 @@ func TestSyncIngestsUnmanagedDestinationWithForce(t *testing.T) {
 	assertFileContent(t, filepath.Join(env.repo, "personal", ".managedrc"), "home managed\n")
 	assertBackupContainsOrigin(t, filepath.Join(env.state, "dots", "backups", "personal"), "repo", filepath.Join(".managedrc"), "base\n")
 	result = env.requireRun("status")
-	assertContains(t, result.stdout, "Clean: no changes")
+	assertContains(t, result.stdout, "Status: clean")
 }
 
 func TestSyncRefreshesStateOnlyMatches(t *testing.T) {
@@ -149,7 +149,7 @@ func TestSyncRefreshesStateOnlyMatches(t *testing.T) {
 		t.Fatalf("repo DB changed during state-only sync\nbefore:\n%s\nafter:\n%s", repoDigestBefore, got)
 	}
 	result = env.requireRun("status")
-	assertContains(t, result.stdout, "Clean: no changes")
+	assertContains(t, result.stdout, "Status: clean")
 }
 
 func TestSyncRefusesRepoDriftBeforeMutation(t *testing.T) {
@@ -203,7 +203,7 @@ func TestDiffSyncMatchesSyncMutationSet(t *testing.T) {
 	plainChanged := changedProfilePaths(plainBefore, profileFileSnapshot(t, env))
 	assertStringSlicesEqual(t, plainChanged, plainPatchPaths)
 	result = env.requireRun("status")
-	assertContains(t, result.stdout, "Clean: no changes")
+	assertContains(t, result.stdout, "Status: clean")
 
 	env = newTestEnv(t)
 	forceRoot := filepath.Join(env.home, ".config", "force-sync")
@@ -235,7 +235,7 @@ func TestDiffSyncMatchesSyncMutationSet(t *testing.T) {
 	forceChanged := changedProfilePaths(forceBefore, profileFileSnapshot(t, env))
 	assertStringSlicesEqual(t, forceChanged, forcePatchPaths)
 	result = env.requireRun("status")
-	assertContains(t, result.stdout, "Clean: no changes")
+	assertContains(t, result.stdout, "Status: clean")
 }
 
 func TestSyncRefusesWhenRemoteHasChangesToPull(t *testing.T) {
