@@ -8,8 +8,7 @@ integration-test:
 
 lint:
 	golangci-lint run
-	actionlint .github/workflows/*.yml
-	zizmor --pedantic --no-ignores .github/workflows
+	hk check --all --check
 
 build:
 	go build -o ./dist/dots .

@@ -4,6 +4,8 @@ lockfile_platforms = ["macos-arm64", "linux-x64", "linux-arm64"]
 locked = true
 
 [tools]
+hk = { version = "1.48.0", postinstall = "hk install --mise" }
+cocogitto = "7.0.0"
 go = "1.26.4"
 actionlint = "latest"
 zizmor = "latest"
@@ -23,12 +25,8 @@ description = "Run integration tests"
 run = "go test -v -count=1 -tags=integration ./integration"
 
 [tasks.lint]
-description = "Run Go and GitHub Actions linters"
-run = [
-  "golangci-lint run",
-  "actionlint .github/workflows/*.yml",
-  "zizmor --pedantic --no-ignores .github/workflows",
-]
+description = "Run centrally managed hk checks"
+run = "hk check --all --check"
 
 [tasks.build]
 description = "Build dots"

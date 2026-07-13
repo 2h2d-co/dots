@@ -26,9 +26,9 @@ jobs:
           persist-credentials: false
 
       - name: Install mise tools
-        uses: jdx/mise-action@dba19683ed58901619b14f395a24841710cb4925 # v4.1.0
+        uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
         with:
-          version: 2026.6.1
+          version: 2026.6.14
           install: true
           install_args: --locked go
           cache: true
@@ -63,18 +63,12 @@ jobs:
           persist-credentials: false
 
       - name: Install mise tools
-        uses: jdx/mise-action@dba19683ed58901619b14f395a24841710cb4925 # v4.1.0
+        uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
         with:
-          version: 2026.6.1
+          version: 2026.6.14
           install: true
-          install_args: --locked go golangci-lint actionlint zizmor
+          install_args: --locked go hk golangci-lint actionlint zizmor
           cache: true
 
-      - name: Go lint
-        run: golangci-lint run
-
-      - name: GitHub Actions syntax lint
-        run: actionlint
-
-      - name: GitHub Actions security lint
-        run: zizmor --pedantic --no-ignores .github/workflows
+      - name: Run shared hk checks
+        run: hk check --all --check
