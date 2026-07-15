@@ -4,7 +4,7 @@ lockfile_platforms = ["macos-arm64", "linux-x64", "linux-arm64"]
 locked = true
 
 [tools]
-hk = { version = "1.50.0", postinstall = "hk install --mise" }
+hk = { version = "1.51.0", postinstall = "hk install --mise" }
 cocogitto = "7.0.0"
 go = "1.26.4"
 actionlint = "latest"
