@@ -6,6 +6,8 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) st
 
 ## Unreleased
 
+## [0.0.6] - 2026-08-01
+
 ### Changed
 
 - Replaced the embedded Gitleaks scanner with Betterleaks for home-to-repository secret detection and scrubbing.
