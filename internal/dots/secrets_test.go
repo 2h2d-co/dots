@@ -84,7 +84,7 @@ func TestCanonicalizeHomeContentBlocksUnsupportedFindings(t *testing.T) {
 	if !errors.As(err, &scanErr) {
 		t.Fatalf("canonicalizeHomeContent() error = %v, want secretScanError", err)
 	}
-	if len(scanErr.Findings) != 1 || scanErr.Findings[0].RuleID != gitleaksRuleGenericAPIKey {
+	if len(scanErr.Findings) != 1 || scanErr.Findings[0].RuleID != betterleaksRuleGenericAPIKey {
 		t.Fatalf("findings = %+v, want generic API key finding", scanErr.Findings)
 	}
 	if strings.Contains(err.Error(), genericValue) {

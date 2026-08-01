@@ -235,7 +235,7 @@ func (a *App) newAddCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add [PATH]",
 		Short: "Copy a file or directory into the active profile",
-		Long:  "Copy a file or directory from the home directory into the active profile and update the profile tracking database and applied-state database for added files. Directory adds also record the directory as a tracked root so future new files under it appear in status. Tracked directory roots may be nested. PATH defaults to the current directory. Paths inside any configured dots repo are refused. Home-to-repo content is scanned with pinned Gitleaks rules; supported npm auth token findings and npmrc auth lines are scrubbed before writing, and remaining findings abort before changes. --dry-run lists the files and directory roots that would be added without copying files or updating the database.",
+		Long:  "Copy a file or directory from the home directory into the active profile and update the profile tracking database and applied-state database for added files. Directory adds also record the directory as a tracked root so future new files under it appear in status. Tracked directory roots may be nested. PATH defaults to the current directory. Paths inside any configured dots repo are refused. Home-to-repo content is scanned with pinned Betterleaks rules; supported npm auth token findings and npmrc auth lines are scrubbed before writing, and remaining findings abort before changes. --dry-run lists the files and directory roots that would be added without copying files or updating the database.",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			target, err := targetOrCurrent(args)
@@ -317,7 +317,7 @@ func (a *App) newSyncCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "sync [PATH...]",
 		Short: "Copy changed home files back into the active profile",
-		Long:  "Reconcile the home-to-repo direction for the active profile. With PATH arguments, sync is limited to matching tracked files, tracked-root subtrees, or new destination files under tracked roots. Scoped sync can resolve selected profile repo drift by backing up conflicting repo files with --force and taking the destination side. Sync copies destination changes and new files under tracked roots into the profile, refreshes applied-state rows for matching files, and refuses destination conflicts unless --force backs up conflicting repo files and takes the destination side. Home-to-repo content is scanned with pinned Gitleaks rules; supported npm auth token findings and npmrc auth lines are scrubbed before writing, and remaining findings abort before changes.",
+		Long:  "Reconcile the home-to-repo direction for the active profile. With PATH arguments, sync is limited to matching tracked files, tracked-root subtrees, or new destination files under tracked roots. Scoped sync can resolve selected profile repo drift by backing up conflicting repo files with --force and taking the destination side. Sync copies destination changes and new files under tracked roots into the profile, refreshes applied-state rows for matching files, and refuses destination conflicts unless --force backs up conflicting repo files and takes the destination side. Home-to-repo content is scanned with pinned Betterleaks rules; supported npm auth token findings and npmrc auth lines are scrubbed before writing, and remaining findings abort before changes.",
 		Args:  cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			rt, err := a.resolveRuntime()

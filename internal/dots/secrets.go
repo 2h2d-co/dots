@@ -15,15 +15,17 @@ import (
 	"strings"
 	"sync"
 
-	gitleaksconfig "github.com/zricethezav/gitleaks/v8/config"
-	"github.com/zricethezav/gitleaks/v8/detect"
-	"github.com/zricethezav/gitleaks/v8/sources"
+	betterleaksconfig "github.com/betterleaks/betterleaks/config"
+	"github.com/betterleaks/betterleaks/detect"
+	"github.com/betterleaks/betterleaks/sources"
 )
 
 const (
-	gitleaksRuleGenericAPIKey = "generic-api-key"
-	gitleaksRuleNPMToken      = "npm-access-token"
+	betterleaksRuleGenericAPIKey = "generic-api-key"
+	betterleaksRuleNPMToken      = "npm-access-token"
 )
+
+var betterleaksScanMu sync.Mutex
 
 type canonicalHomeFile struct {
 	Content []byte
@@ -41,12 +43,6 @@ type secretFindingSummary struct {
 type secretScanError struct {
 	Findings []secretFindingSummary
 }
-
-var (
-	gitleaksConfigOnce sync.Once
-	gitleaksConfig     gitleaksconfig.Config
-	gitleaksConfigErr  error
-)
 
 func (e secretScanError) Error() string {
 	if len(e.Findings) == 0 {
@@ -134,24 +130,26 @@ func canonicalizeHomeContent(trackedPath string, content []byte, enforceClean bo
 }
 
 func scanSecrets(trackedPath string, content []byte) ([]secretFindingSummary, error) {
-	cfg, err := defaultGitleaksConfig()
+	betterleaksScanMu.Lock()
+	defer betterleaksScanMu.Unlock()
+
+	cfg, err := defaultBetterleaksConfig()
 	if err != nil {
 		return nil, err
 	}
-	detector := detect.NewDetector(cfg)
-	detector.Redact = 100
+	ctx := context.Background()
+	detector := detect.NewDetectorContext(ctx, cfg, detect.ValidationOptions{})
 	detector.MaxDecodeDepth = 5
 
-	findings, err := detector.DetectSource(context.Background(), &sources.File{
+	summaries := make([]secretFindingSummary, 0)
+	for result := range detector.Run(ctx, &sources.File{
 		Content: bytes.NewReader(content),
 		Path:    path.Clean(trackedPath),
-		Config:  &cfg,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("scan %s for secrets: %w", trackedPath, err)
-	}
-	summaries := make([]secretFindingSummary, 0, len(findings))
-	for _, finding := range findings {
+	}) {
+		if result.Err != nil {
+			return nil, fmt.Errorf("scan %s for secrets: %w", trackedPath, result.Err)
+		}
+		finding := result.Finding
 		summaryPath := finding.File
 		if summaryPath == "" {
 			summaryPath = trackedPath
@@ -168,16 +166,12 @@ func scanSecrets(trackedPath string, content []byte) ([]secretFindingSummary, er
 	return summaries, nil
 }
 
-func defaultGitleaksConfig() (gitleaksconfig.Config, error) {
-	gitleaksConfigOnce.Do(func() {
-		detector, err := detect.NewDetectorDefaultConfig()
-		if err != nil {
-			gitleaksConfigErr = fmt.Errorf("load gitleaks default config: %w", err)
-			return
-		}
-		gitleaksConfig = detector.Config
-	})
-	return gitleaksConfig, gitleaksConfigErr
+func defaultBetterleaksConfig() (*betterleaksconfig.Config, error) {
+	cfg, err := betterleaksconfig.Default()
+	if err != nil {
+		return nil, fmt.Errorf("load Betterleaks default config: %w", err)
+	}
+	return cfg, nil
 }
 
 func shouldScanCanonicalContent(trackedPath string, content []byte, enforceClean bool) bool {
@@ -194,9 +188,9 @@ func secretScrubLines(trackedPath string, content []byte, findings []secretFindi
 			continue
 		}
 		switch finding.RuleID {
-		case gitleaksRuleNPMToken:
+		case betterleaksRuleNPMToken:
 			lines[finding.StartLine] = struct{}{}
-		case gitleaksRuleGenericAPIKey:
+		case betterleaksRuleGenericAPIKey:
 			if isNPMRCPath(trackedPath) && isNPMRCAuthLine(lineAt(content, finding.StartLine)) {
 				lines[finding.StartLine] = struct{}{}
 			}
