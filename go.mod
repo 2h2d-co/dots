@@ -9,7 +9,7 @@ require (
 	github.com/go-git/go-git/v5 v5.19.1
 	github.com/pressly/goose/v3 v3.27.2
 	github.com/spf13/cobra v1.10.2
-	modernc.org/sqlite v1.53.0
+	modernc.org/sqlite v1.55.0
 )
 
 require (
@@ -88,7 +88,7 @@ require (
 	golang.org/x/sys v0.46.0 // indirect
 	golang.org/x/text v0.38.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
-	modernc.org/libc v1.73.4 // indirect
+	modernc.org/libc v1.74.1 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 )
