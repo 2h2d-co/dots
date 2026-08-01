@@ -64,20 +64,20 @@ url = "https://github.com/cocogitto/cocogitto/releases/download/7.0.0/cocogitto-
 url_api = "https://api.github.com/repos/cocogitto/cocogitto/releases/assets/366659431"
 
 [[tools.go]]
-version = "1.26.4"
+version = "1.26.5"
 backend = "core:go"
 
 [tools.go."platforms.linux-arm64"]
-checksum = "sha256:ef758ae7c6cf9267c9c0ef080b8965f453d89ab2d25d9eb22de4405925238768"
-url = "https://dl.google.com/go/go1.26.4.linux-arm64.tar.gz"
+checksum = "sha256:fe4789e92b1f33358680864bbe8704289e7bb5fc207d80623c308935bd696d49"
+url = "https://dl.google.com/go/go1.26.5.linux-arm64.tar.gz"
 
 [tools.go."platforms.linux-x64"]
-checksum = "sha256:1153d3d50e0ac764b447adfe05c2bcf08e889d42a02e0fe0259bd47f6733ad7f"
-url = "https://dl.google.com/go/go1.26.4.linux-amd64.tar.gz"
+checksum = "sha256:5c2c3b16caefa1d968a94c1daca04a7ca301a496d9b086e17ad77bb81393f053"
+url = "https://dl.google.com/go/go1.26.5.linux-amd64.tar.gz"
 
 [tools.go."platforms.macos-arm64"]
-checksum = "sha256:b62ad2b6d7d2464f12a5bcad7ff47f19d08325773b5efd21610e445a05a9bf53"
-url = "https://dl.google.com/go/go1.26.4.darwin-arm64.tar.gz"
+checksum = "sha256:efb87ff28af9a188d0536ef5d42e63dd52ba8263cd7344a993cc48dd11dedb6a"
+url = "https://dl.google.com/go/go1.26.5.darwin-arm64.tar.gz"
 
 [[tools.golangci-lint]]
 version = "2.12.2"
@@ -102,64 +102,64 @@ url_api = "https://api.github.com/repos/golangci/golangci-lint/releases/assets/4
 provenance = "github-attestations"
 
 [[tools.goreleaser]]
-version = "2.16.0"
+version = "2.17.0"
 backend = "aqua:goreleaser/goreleaser"
 
 [tools.goreleaser."platforms.linux-arm64"]
-checksum = "sha256:0102d974373fcdeb77042d1f5897caffa193be36620fdc6c1da43a01ef8e10d3"
-url = "https://github.com/goreleaser/goreleaser/releases/download/v2.16.0/goreleaser_Linux_arm64.tar.gz"
-url_api = "https://api.github.com/repos/goreleaser/goreleaser/releases/assets/428676998"
+checksum = "sha256:75f93fc0e25d10d8535ffd0e4abcf39d6784a2467ba453d479ae513729a9ebbf"
+url = "https://github.com/goreleaser/goreleaser/releases/download/v2.17.0/goreleaser_Linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/goreleaser/goreleaser/releases/assets/466714135"
 provenance = "github-attestations"
 
 [tools.goreleaser."platforms.linux-x64"]
-checksum = "sha256:eaae05b5eba07533bd0f06846b68c808399504784df00c62eb219541fc04e5e2"
-url = "https://github.com/goreleaser/goreleaser/releases/download/v2.16.0/goreleaser_Linux_x86_64.tar.gz"
-url_api = "https://api.github.com/repos/goreleaser/goreleaser/releases/assets/428676974"
+checksum = "sha256:dde10e2d5a13cef969c0eec00c74f359c0ac306d702b1bd291ad9337b4e54c1d"
+url = "https://github.com/goreleaser/goreleaser/releases/download/v2.17.0/goreleaser_Linux_x86_64.tar.gz"
+url_api = "https://api.github.com/repos/goreleaser/goreleaser/releases/assets/466714136"
 provenance = "github-attestations"
 
 [tools.goreleaser."platforms.macos-arm64"]
-checksum = "sha256:6a102e4d588fd3553a9ac7321ca6023a9f205843f4861ca35bd337dfa9e72ece"
-url = "https://github.com/goreleaser/goreleaser/releases/download/v2.16.0/goreleaser_Darwin_all.tar.gz"
-url_api = "https://api.github.com/repos/goreleaser/goreleaser/releases/assets/428677010"
+checksum = "sha256:4106ff54bcaa1d387d3317047169da28aed6ce36c8e035e76cf35ba349db06ef"
+url = "https://github.com/goreleaser/goreleaser/releases/download/v2.17.0/goreleaser_Darwin_all.tar.gz"
+url_api = "https://api.github.com/repos/goreleaser/goreleaser/releases/assets/466714160"
 provenance = "github-attestations"
 
 [[tools.hk]]
-version = "1.51.0"
+version = "1.53.0"
 backend = "aqua:jdx/hk"
 
 [tools.hk."platforms.linux-arm64"]
-checksum = "sha256:6dc84f63ba365544d36a3436360b69c04fcad50dc29758c826de5a7e363c9809"
-url = "https://github.com/jdx/hk/releases/download/v1.51.0/hk-aarch64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/jdx/hk/releases/assets/476588078"
+checksum = "sha256:3cf58d268a9114f0923a06c38cf0995b9da43bf2279b09aac3c3c615a615b3e4"
+url = "https://github.com/jdx/hk/releases/download/v1.53.0/hk-aarch64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/jdx/hk/releases/assets/487429257"
 
 [tools.hk."platforms.linux-x64"]
-checksum = "sha256:6ef59a3a06c10141181853bfcbe82bdb939c5a65efe05c762f98a06896b4cc25"
-url = "https://github.com/jdx/hk/releases/download/v1.51.0/hk-x86_64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/jdx/hk/releases/assets/476588091"
+checksum = "sha256:960c14b3bcd61e36dcb42c304e3cc23b22ef2e6f28ac6559e3856d27acf6b54a"
+url = "https://github.com/jdx/hk/releases/download/v1.53.0/hk-x86_64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/jdx/hk/releases/assets/487429267"
 
 [tools.hk."platforms.macos-arm64"]
-checksum = "sha256:1f19137c63bc3be45c58badd4aa0e14b2718669df93c8f4c1d05b74e5ab6acef"
-url = "https://github.com/jdx/hk/releases/download/v1.51.0/hk-aarch64-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/jdx/hk/releases/assets/476588079"
+checksum = "sha256:d5c1f9a4c3598cc72c9f15908af6e036b138b9dd97c8891e4d08f699c98a5069"
+url = "https://github.com/jdx/hk/releases/download/v1.53.0/hk-aarch64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/jdx/hk/releases/assets/487429255"
 
 [[tools.zizmor]]
-version = "1.25.2"
+version = "1.28.0"
 backend = "aqua:zizmorcore/zizmor"
 
 [tools.zizmor."platforms.linux-arm64"]
-checksum = "sha256:4b4b9491112c2a09b318101c0d3349b73af1c4f532e097dd6d0164f2abda760d"
-url = "https://github.com/zizmorcore/zizmor/releases/download/v1.25.2/zizmor-aarch64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/zizmorcore/zizmor/releases/assets/421630939"
+checksum = "sha256:324e43770cfacf4216f8aefb287263b5b5c733c85b03bf7583b5cc4a0460239e"
+url = "https://github.com/zizmorcore/zizmor/releases/download/v1.28.0/zizmor-aarch64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/zizmorcore/zizmor/releases/assets/485211654"
 provenance = "github-attestations"
 
 [tools.zizmor."platforms.linux-x64"]
-checksum = "sha256:aa1facd105f0d83fe5c55b1adcd9d7417de5d83aa27471f91dc0b66cf3803577"
-url = "https://github.com/zizmorcore/zizmor/releases/download/v1.25.2/zizmor-x86_64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/zizmorcore/zizmor/releases/assets/421630940"
+checksum = "sha256:e87b67160194884e375a46a12c57ccc904f762b53845f254fab7f17d98809c09"
+url = "https://github.com/zizmorcore/zizmor/releases/download/v1.28.0/zizmor-x86_64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/zizmorcore/zizmor/releases/assets/485211657"
 provenance = "github-attestations"
 
 [tools.zizmor."platforms.macos-arm64"]
-checksum = "sha256:624ef0e09521aecd862126be0f6d7754669af2646750d68ac48a114be33c3146"
-url = "https://github.com/zizmorcore/zizmor/releases/download/v1.25.2/zizmor-aarch64-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/zizmorcore/zizmor/releases/assets/421630938"
+checksum = "sha256:54949bbd6b4c8527046bb8990bac9e0dab3eec787640f4e6199ae121dd1040be"
+url = "https://github.com/zizmorcore/zizmor/releases/download/v1.28.0/zizmor-aarch64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/zizmorcore/zizmor/releases/assets/485211655"
 provenance = "github-attestations"
