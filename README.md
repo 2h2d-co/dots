@@ -120,6 +120,10 @@ make build
 
 With mise shell integration active, `dots:local` is an alias for `go run .`.
 
+## Releases
+
+Release tags must be lightweight tags. Create one with `git tag v<version>`; do not use `git tag -a`, `git tag -s`, `git tag -m`, or `cog bump --annotated`.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).

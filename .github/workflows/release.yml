@@ -37,6 +37,14 @@ jobs:
           install_args: --locked go goreleaser
           cache: false
 
+      - name: Validate release tag
+        shell: bash
+        run: |
+          if [[ $(git cat-file -t "refs/tags/$GITHUB_REF_NAME") != commit ]]; then
+            echo "release tag $GITHUB_REF_NAME must be a lightweight tag" >&2
+            exit 1
+          fi
+
       - name: Run GoReleaser
         run: goreleaser release --clean
         env:
