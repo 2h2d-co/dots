@@ -96,6 +96,7 @@ build_from_index() {
 	mkdir -p "$source"
 	git checkout-index --all --force --prefix="$source/"
 	(
+		export MISE_TRUSTED_CONFIG_PATHS="$source"
 		cd "$source"
 		git init --quiet
 		git config user.name "Release build"
