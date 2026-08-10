@@ -8,10 +8,12 @@
 - Maintain `CHANGELOG.md` using the [Keep a Changelog](https://keepachangelog.com/) style.
 - Add changelog entries for changes whose commit would be `feat:` or `fix:`; keep entries under `Unreleased` until a release is made.
 - Release commits should do the following:
-  - update the project version;
-  - move `Unreleased` changelog entries into the new release section;
-  - commit with `release: vX.Y.Z` as the commit message;
-  - create a lightweight tag named `vX.Y.Z` with `git tag vX.Y.Z`; do not use `git tag -a`, `git tag -s`, `git tag -m`, or `cog bump --annotated`.
+  - be created with `scripts/release.sh VERSION` from clean `main` synchronized with `origin/main`;
+  - include the reproducible release-manifest digest in an SSH-signed commit;
+  - move `Unreleased` changelog entries into a dated section for stable releases;
+  - keep prerelease changes under `Unreleased`;
+  - use `release: vVERSION` as the commit subject;
+  - create a lightweight `vVERSION` tag and push the commit and tag atomically.
 
 ## Core Constraints
 

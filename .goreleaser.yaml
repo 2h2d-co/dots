@@ -9,6 +9,10 @@ builds:
     env:
       - CGO_ENABLED=0
       - GOFLAGS=-mod=readonly
+    flags:
+      - -buildvcs=false
+      - -trimpath
+    mod_timestamp: "0"
     goos:
       - darwin
       - linux
@@ -28,11 +32,35 @@ archives:
     formats:
       - tar.gz
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    builds_info:
+      owner: root
+      group: root
+      mtime: "1970-01-01T00:00:00Z"
     files:
-      - README.md
-      - LICENSE
-      - examples/config.toml
-      - docs/man/*.1
+      - src: README.md
+        info:
+          owner: root
+          group: root
+          mode: 0644
+          mtime: "1970-01-01T00:00:00Z"
+      - src: LICENSE
+        info:
+          owner: root
+          group: root
+          mode: 0644
+          mtime: "1970-01-01T00:00:00Z"
+      - src: examples/config.toml
+        info:
+          owner: root
+          group: root
+          mode: 0644
+          mtime: "1970-01-01T00:00:00Z"
+      - src: docs/man/*.1
+        info:
+          owner: root
+          group: root
+          mode: 0644
+          mtime: "1970-01-01T00:00:00Z"
 
 checksum:
   name_template: checksums.txt
@@ -41,9 +69,4 @@ snapshot:
   version_template: "{{ incpatch .Version }}-next"
 
 changelog:
-  use: github
-
-release:
-  github:
-    owner: 2h2d-co
-    name: dots
+  disable: true

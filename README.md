@@ -122,7 +122,21 @@ With mise shell integration active, `dots:local` is an alias for `go run .`.
 
 ## Releases
 
-Release tags must be lightweight tags. Create one with `git tag v<version>`; do not use `git tag -a`, `git tag -s`, `git tag -m`, or `cog bump --annotated`.
+Create a signed release commit and lightweight tag from clean, synchronized
+`main`:
+
+```sh
+scripts/release.sh 0.0.7-alpha.0
+git push --atomic origin main v0.0.7-alpha.0
+```
+
+The release command builds the GoReleaser archives twice from the Git index,
+requires byte-for-byte reproducibility, and signs the canonical release
+manifest digest in the release commit. Prereleases keep changelog entries
+under `Unreleased`; stable releases create the dated changelog section.
+
+Do not create annotated or signed tag objects. Release tags must be
+lightweight tags pointing to the signed release commit.
 
 ## License
 
