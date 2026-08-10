@@ -102,7 +102,7 @@ build_from_index() {
 		git config user.name "Release build"
 		git config user.email "release-build@invalid"
 		git add --all
-		git -c commit.gpgsign=false commit --quiet -m "release build source"
+		git -c commit.gpgsign=false commit --quiet -m "chore: prepare release build source"
 		git remote add origin https://github.com/2h2d-co/dots.git
 		git -c tag.gpgSign=false tag "$tag"
 		PATH="$(dirname "$go_bin"):$PATH" \
