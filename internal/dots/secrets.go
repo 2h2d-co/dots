@@ -21,8 +21,9 @@ import (
 )
 
 const (
-	betterleaksRuleGenericAPIKey = "generic-api-key"
-	betterleaksRuleNPMToken      = "npm-access-token"
+	betterleaksRuleGenericAPIKey   = "generic-api-key"
+	betterleaksRuleGenericPassword = "generic-password"
+	betterleaksRuleNPMToken        = "npm-access-token"
 )
 
 var betterleaksScanMu sync.Mutex
@@ -190,7 +191,7 @@ func secretScrubLines(trackedPath string, content []byte, findings []secretFindi
 		switch finding.RuleID {
 		case betterleaksRuleNPMToken:
 			lines[finding.StartLine] = struct{}{}
-		case betterleaksRuleGenericAPIKey:
+		case betterleaksRuleGenericAPIKey, betterleaksRuleGenericPassword:
 			if isNPMRCPath(trackedPath) && isNPMRCAuthLine(lineAt(content, finding.StartLine)) {
 				lines[finding.StartLine] = struct{}{}
 			}
