@@ -1,6 +1,6 @@
 module github.com/2h2d-co/dots
 
-go 1.26.5
+go 1.26.7
 
 require (
 	github.com/BurntSushi/toml v1.6.0
@@ -9,7 +9,7 @@ require (
 	github.com/go-git/go-git/v5 v5.19.2
 	github.com/pressly/goose/v3 v3.27.3
 	github.com/spf13/cobra v1.10.2
-	modernc.org/sqlite v1.56.0
+	modernc.org/sqlite v1.57.0
 )
 
 require (

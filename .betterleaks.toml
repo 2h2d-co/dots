@@ -1,0 +1,25 @@
+title = "dots Betterleaks policy"
+betterleaksMinVersion = "v1.8.1"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Ignore the Betterleaks generic password rule identifier"
+targetRules = ["generic-password"]
+condition = "AND"
+paths = ["^internal/dots/secrets\\.go$"]
+regexTarget = "line"
+regexes = [
+  "^\\s*betterleaksRuleGenericPassword\\s*=\\s*\"generic-password\"\\s*$",
+]
+
+[[allowlists]]
+description = "Ignore the synthetic npmrc password integration fixture"
+targetRules = ["generic-password"]
+condition = "AND"
+paths = ["^integration/secrets_test\\.go$"]
+regexTarget = "line"
+regexes = [
+  "passwordValue",
+]
