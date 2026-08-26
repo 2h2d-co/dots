@@ -10,6 +10,10 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) st
 
 - Added a local signed release command that authorizes the exact reproducible Go release manifest.
 
+### Fixed
+
+- Preserve npmrc credential scrubbing with Betterleaks' split generic password rule.
+
 ### Security
 
 - Split release construction from credentialed GitHub publication and independently revalidate transferred artifacts.
