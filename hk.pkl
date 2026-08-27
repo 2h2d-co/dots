@@ -10,12 +10,20 @@ env {
 
 local goSteps = (Go.goSteps) {
   ["go-vuln-check"] = new Step {
-    glob = "**/*.go"
+    glob = List("**/*.go", "**/go.mod", "**/go.sum")
     workspace_indicator = "go.mod"
     step_condition = Base.commandExistsCondition("go")
     depends = List("go-vet")
     check = new CommandSpec {
-      command = "cd {{workspace}} && go tool govulncheck ./..."
+      command = #"""
+        cd {{workspace}}
+        if ! go tool | grep -Fxq 'golang.org/x/vuln/cmd/govulncheck'; then
+          echo 'govulncheck must be declared as a Go tool dependency' >&2
+          echo 'run: go get -tool golang.org/x/vuln/cmd/govulncheck@v1.7.0' >&2
+          exit 1
+        fi
+        go tool govulncheck ./...
+        """#
       effect = "write"
     }
   }
