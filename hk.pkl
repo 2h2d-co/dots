@@ -8,8 +8,21 @@ env {
   ["BETTERLEAKS_CONFIG"] = ".betterleaks.toml"
 }
 
+local goSteps = (Go.goSteps) {
+  ["go-vuln-check"] = new Step {
+    glob = "**/*.go"
+    workspace_indicator = "go.mod"
+    step_condition = Base.commandExistsCondition("go")
+    depends = List("go-vet")
+    check = new CommandSpec {
+      command = "cd {{workspace}} && go tool govulncheck ./..."
+      effect = "write"
+    }
+  }
+}
+
 local projectSteps = (Base.baseSteps) {
-  ...Go.goSteps
+  ...goSteps
   ...GitHubActions.gitHubActionsSteps
 }
 
