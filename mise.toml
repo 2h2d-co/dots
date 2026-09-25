@@ -33,3 +33,14 @@ run = "hk check --all --check"
 [tasks.build]
 description = "Build dots"
 run = "go build -o ./dist/dots ."
+
+[tasks.check]
+description = "Run all non-writing project checks"
+run = [
+  "go mod verify",
+  "go test -race -mod=readonly ./...",
+  "go test -count=1 -tags=integration ./integration",
+  "go build ./...",
+  "hk check --all --check",
+  "goreleaser check",
+]

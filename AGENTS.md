@@ -70,17 +70,13 @@ Follow the same baseline as `cage`:
 - GitHub Actions should pin third-party actions by full commit SHA and use `persist-credentials: false`.
 - Respect XDG variables in tests so integration tests never touch a developer's real dotfiles, config, or state.
 
-Recommended validation:
+Run the complete non-writing validation before committing:
 
 ```sh
-go mod verify
-test -z "$(gofmt -l .)"
-go test -race -mod=readonly ./...
-go test -v -count=1 -tags=integration ./integration
-go vet ./...
-mise run lint
-goreleaser check
+mise run check
 ```
+
+It runs `go mod verify`, race-enabled tests, integration tests, `go build`, the shared hk checks (gofmt, go vet, golangci-lint, and govulncheck), and `goreleaser check`.
 
 If mise config is untrusted in a non-interactive harness, run commands with:
 
