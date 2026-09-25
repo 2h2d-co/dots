@@ -16,6 +16,8 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) st
 
 ### Security
 
+- Updated `golang.org/x/crypto` to v0.56.0 to fix SSH client denial-of-service vulnerabilities
+  GO-2026-6354 and GO-2026-6355 reachable when checking the remote for changes to pull.
 - Split release construction from credentialed GitHub publication and independently revalidate transferred artifacts.
 - Restricted release archives to an exact file manifest with normalized metadata, pinned tools, checksums, and GitHub attestations.
 
