@@ -1,5 +1,6 @@
 [settings]
 lockfile = true
+lockfile_mode = "generate"
 lockfile_platforms = ["macos-arm64", "linux-x64", "linux-arm64"]
 locked = true
 minimum_release_age = "7d"
