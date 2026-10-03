@@ -108,7 +108,7 @@ dots sync
 
 ## Requirements
 
-- Go 1.26+
+- Go 1.27+
 
 ## Development
 

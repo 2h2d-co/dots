@@ -10,6 +10,10 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) st
 
 - Added a local signed release command that authorizes the exact reproducible Go release manifest.
 
+### Changed
+
+- Built release binaries with Go 1.27.1. macOS binaries require macOS 13 Ventura or later.
+
 ### Fixed
 
 - Preserve npmrc credential scrubbing with Betterleaks' split generic password rule.
