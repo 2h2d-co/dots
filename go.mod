@@ -98,4 +98,7 @@ require (
 	modernc.org/memory v1.12.1 // indirect
 )
 
-tool golang.org/x/vuln/cmd/govulncheck
+tool (
+	golang.org/x/tools/cmd/goimports
+	golang.org/x/vuln/cmd/govulncheck
+)

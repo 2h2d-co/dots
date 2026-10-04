@@ -13,9 +13,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-)
 
-import _ "modernc.org/sqlite" // Register SQLite driver for integration test database fixtures.
+	_ "modernc.org/sqlite" // Register SQLite driver for integration test database fixtures.
+)
 
 func runGit(t *testing.T, dir string, args ...string) {
 	t.Helper()
