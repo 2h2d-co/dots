@@ -67,7 +67,7 @@ jobs:
         with:
           version: "2026.9.14"
           install: true
-          install_args: --locked go hk golangci-lint actionlint zizmor
+          install_args: --locked go hk betterleaks golangci-lint actionlint zizmor
           cache: true
 
       - name: Run shared hk checks
