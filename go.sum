@@ -19,8 +19,8 @@ github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5 h1:0CwZNZbxp69SHPd
 github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5/go.mod h1:wHh0iHkYZB8zMSxRWpUBQtwG5a7fFgvEO+odwuTv2gs=
 github.com/aymanbagabas/go-udiff v0.4.1 h1:OEIrQ8maEeDBXQDoGCbbTTXYJMYRCRO1fnodZ12Gv5o=
 github.com/aymanbagabas/go-udiff v0.4.1/go.mod h1:0L9PGwj20lrtmEMeyw4WKJ/TMyDtvAoK9bf2u/mNo3w=
-github.com/betterleaks/betterleaks v1.8.1 h1:tTSQAdQe+S4MF69o6VtpRDlml1b73F1xNUUA3PcrHiI=
-github.com/betterleaks/betterleaks v1.8.1/go.mod h1:M8pR9QvWFx+iWcRH2HG6Qe1wP9DLXhHt75iMNyZ7Y+s=
+github.com/betterleaks/betterleaks v1.9.0 h1:mYAZBNUGBww1ihIwcb68Z2QmLh5hZwKbLG0jsf4PfpE=
+github.com/betterleaks/betterleaks v1.9.0/go.mod h1:M8pR9QvWFx+iWcRH2HG6Qe1wP9DLXhHt75iMNyZ7Y+s=
 github.com/bodgit/plumbing v1.3.0 h1:pf9Itz1JOQgn7vEOE7v7nlEfBykYqvUYioC61TwWCFU=
 github.com/bodgit/plumbing v1.3.0/go.mod h1:JOTb4XiRu5xfnmdnDJo6GmSbSbtSyufrsyZFByMtKEs=
 github.com/bodgit/sevenzip v1.6.5 h1:7H7BxgmeX0j6UX42lH+KXQ92WgMQJ49DoocFdfHbCng=
