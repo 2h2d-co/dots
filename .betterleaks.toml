@@ -1,5 +1,5 @@
 title = "dots Betterleaks policy"
-betterleaksMinVersion = "v1.8.1"
+betterleaksMinVersion = "v1.9.0"
 
 [extend]
 useDefault = true
