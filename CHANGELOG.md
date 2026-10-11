@@ -12,7 +12,7 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) st
 
 ### Changed
 
-- Built release binaries with Go 1.27.1. macOS binaries require macOS 13 Ventura or later.
+- Built release binaries with Go 1.27.2. macOS binaries require macOS 13 Ventura or later.
 
 ### Fixed
 
@@ -24,6 +24,9 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) st
   GO-2026-6354 and GO-2026-6355 reachable when checking the remote for changes to pull.
 - Split release construction from credentialed GitHub publication and independently revalidate transferred artifacts.
 - Restricted release archives to an exact file manifest with normalized metadata, pinned tools, checksums, and GitHub attestations.
+- Built with Go 1.27.2 to fix Go standard library vulnerabilities GO-2026-6603, GO-2026-6605,
+  GO-2026-6607, GO-2026-6608, GO-2026-6610, GO-2026-6611, GO-2026-6613, and GO-2026-6617, which
+  govulncheck reports as reachable.
 
 ## [0.0.6] - 2026-08-01
 
