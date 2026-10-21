@@ -6,6 +6,8 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) st
 
 ## Unreleased
 
+## [0.0.7] - 2026-10-21
+
 ### Added
 
 - Added a local signed release command that authorizes the exact reproducible Go release manifest.
