@@ -13,7 +13,7 @@ go = "1.27.3"
 actionlint = "1.7.12"
 zizmor = "1.30.1"
 golangci-lint = "2.14.0"
-goreleaser = "2.18.2"
+goreleaser = "2.18.3"
 
 [shell_alias]
 "dots:local" = "go run ."
