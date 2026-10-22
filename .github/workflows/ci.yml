@@ -19,6 +19,7 @@ jobs:
   test:
     name: Test
     runs-on: macos-15
+    timeout-minutes: 10
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -56,6 +57,7 @@ jobs:
   lint:
     name: Lint
     runs-on: macos-15
+    timeout-minutes: 10
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -67,7 +69,7 @@ jobs:
         with:
           version: "2026.10.17"
           install: true
-          install_args: --locked go hk betterleaks golangci-lint actionlint zizmor
+          install_args: --locked go hk betterleaks golangci-lint jactionlint zizmor
           cache: true
 
       - name: Run shared hk checks
