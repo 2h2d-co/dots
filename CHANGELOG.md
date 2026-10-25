@@ -6,6 +6,8 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) st
 
 ## Unreleased
 
+## [0.0.8] - 2026-10-25
+
 ### Security
 
 - Updated `github.com/andybalholm/brotli` to v1.2.7. Earlier versions have the Go port of the
