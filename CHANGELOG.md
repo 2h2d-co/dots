@@ -6,6 +6,12 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) st
 
 ## Unreleased
 
+### Security
+
+- Updated `github.com/andybalholm/brotli` to v1.2.7. Earlier versions have the Go port of the
+  Brotli decoder bug behind CVE-2026-111497. The secret scan can decode a crafted Brotli stream while
+  it identifies the compression of a tracked `.tar` file, and that stream could make `dots` panic.
+
 ## [0.0.7] - 2026-10-21
 
 ### Added
