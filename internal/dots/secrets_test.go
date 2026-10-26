@@ -152,7 +152,7 @@ func TestBuildSyncDiffPlanUsesCanonicalDestinationContent(t *testing.T) {
 	rt := newStatusTestRuntime(t)
 	record := writeRepoTrackedFile(t, rt, ".npmrc", "registry=https://old.example/\n\n")
 	writeDestinationFile(t, rt, ".npmrc", "registry=https://new.example/\n//registry.npmjs.org/:_authToken="+fakeNPMToken+"\n")
-	report := statusReport{Conflict: []statusItem{{Kind: kindConflictChanged, Path: ".npmrc"}}}
+	report := statusReport{Home: []statusItem{{Kind: kindHomeChanged, Path: ".npmrc"}}}
 
 	plan, err := buildSyncDiffPlan(rt, report, []FileRecord{record})
 	if err != nil {

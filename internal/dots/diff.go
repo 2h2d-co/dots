@@ -121,9 +121,21 @@ func buildApplyDiffPlan(rt *Runtime, report statusReport, records []FileRecord) 
 			continue
 		}
 	}
+	for _, item := range report.Home {
+		record, ok := recordsByPath[item.Path]
+		if !ok {
+			return diffPlan{}, fmt.Errorf("tracked record missing for %s", item.Path)
+		}
+		entry, err := applyUpdateDiffEntry(rt, item.Path, record)
+		if err != nil {
+			return diffPlan{}, err
+		}
+		plan.Entries = append(plan.Entries, entry)
+		plan.Notes = append(plan.Notes, diffNote{Path: item.Path, Text: fmt.Sprintf("diff: %s changed in home; plain apply refuses it. Use `dots sync` to keep the home version, or `dots apply --force` to back it up and overwrite it", item.Path)})
+	}
 	for _, item := range report.Conflict {
 		switch item.Kind {
-		case kindConflictChanged, kindConflictDiverged, kindConflictManaged:
+		case kindConflictDiverged, kindConflictManaged:
 			record, ok := recordsByPath[item.Path]
 			if !ok {
 				return diffPlan{}, fmt.Errorf("tracked record missing for %s", item.Path)

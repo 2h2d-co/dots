@@ -6,6 +6,17 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) st
 
 ## Unreleased
 
+### Changed
+
+- `dots status`, `dots sync --dry-run`, and `dots apply` now list tracked files edited only in `$HOME`
+  since the last apply under `Home changes` as `changed in home since last apply`. They no longer
+  appear under `Conflicts` as `destination changed since last apply`. A plain `dots sync` copies
+  them, as before, and a plain `dots apply` still refuses to overwrite them; its message now
+  suggests `dots sync`.
+- The status line reads `Status: changes pending` when a plain apply or sync can resolve the drift.
+  `Status: changes require attention` now means profile drift, a conflict, or a tracked root that
+  is not a directory needs a decision.
+
 ## [0.0.8] - 2026-10-25
 
 ### Security

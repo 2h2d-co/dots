@@ -24,7 +24,7 @@ func TestDiffCommand(t *testing.T) {
 	writeFile(t, filepath.Join(env.home, ".zshrc"), "user edit\n", 0o644)
 	result = env.run("status")
 	assertExitCode(t, result, 1)
-	assertContains(t, result.stdout, "destination changed since last apply: .zshrc")
+	assertContains(t, result.stdout, "changed in home since last apply: .zshrc")
 
 	result = env.run("diff")
 	assertExitCode(t, result, 1)

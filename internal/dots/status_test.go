@@ -42,7 +42,7 @@ func TestAnalyzeStatusClassifiesChanges(t *testing.T) {
 		writeRepoTrackedFile(t, rt, "pending-adopt", "adopt\n"),
 		writeRepoTrackedFile(t, rt, "conflict-unmanaged", "repo\n"),
 		writeRepoTrackedFile(t, rt, "pending-update", "new\n"),
-		writeRepoTrackedFile(t, rt, "conflict-changed", "old\n"),
+		writeRepoTrackedFile(t, rt, "home-changed", "old\n"),
 		writeRepoTrackedFile(t, rt, "conflict-diverged", "new\n"),
 		writeRepoTrackedFile(t, rt, "conflict-type", "file\n"),
 		writeRepoTrackedFile(t, rt, "pending-state", "new\n"),
@@ -53,7 +53,7 @@ func TestAnalyzeStatusClassifiesChanges(t *testing.T) {
 	writeDestinationFile(t, rt, "pending-adopt", "adopt\n")
 	writeDestinationFile(t, rt, "conflict-unmanaged", "different\n")
 	writeDestinationFile(t, rt, "pending-update", "old\n")
-	writeDestinationFile(t, rt, "conflict-changed", "user\n")
+	writeDestinationFile(t, rt, "home-changed", "user\n")
 	writeDestinationFile(t, rt, "conflict-diverged", "user\n")
 	if err := os.MkdirAll(destinationPath(rt, "conflict-type"), 0o750); err != nil {
 		t.Fatalf("create destination directory conflict: %v", err)
@@ -62,7 +62,7 @@ func TestAnalyzeStatusClassifiesChanges(t *testing.T) {
 
 	stateRecords := []FileRecord{
 		testFileRecord("pending-update", "old\n"),
-		testFileRecord("conflict-changed", "old\n"),
+		testFileRecord("home-changed", "old\n"),
 		testFileRecord("conflict-diverged", "old\n"),
 		testFileRecord("pending-state", "old\n"),
 		testFileRecord("stale-state", "stale\n"),
@@ -91,7 +91,7 @@ func TestAnalyzeStatusClassifiesChanges(t *testing.T) {
 	assertStatusItem(t, report.Pending, kindPendingUpdate, "pending-update")
 	assertStatusItem(t, report.Pending, kindPendingState, "pending-state")
 	assertStatusItem(t, report.Conflict, kindConflictManaged, "conflict-unmanaged")
-	assertStatusItem(t, report.Conflict, kindConflictChanged, "conflict-changed")
+	assertStatusItem(t, report.Home, kindHomeChanged, "home-changed")
 	assertStatusItem(t, report.Conflict, kindConflictDiverged, "conflict-diverged")
 	assertStatusItem(t, report.Conflict, kindConflictType, "conflict-type")
 	assertStatusItem(t, report.State, kindStaleState, "stale-state")
@@ -212,6 +212,50 @@ func TestWriteStatusReportCleanSummaryWithNoTrackedRoots(t *testing.T) {
 	}
 }
 
+func TestWriteStatusReportSeparatesHomeChangesFromConflicts(t *testing.T) {
+	t.Parallel()
+
+	homeOnly := statusReport{
+		Profile: "personal",
+		Home:    []statusItem{{Kind: kindHomeChanged, Path: ".zshrc"}},
+	}
+	var out bytes.Buffer
+	if err := writeStatusReport(&out, homeOnly); err != nil {
+		t.Fatalf("writeStatusReport() error = %v", err)
+	}
+	want := "Profile: personal\n" +
+		"Status: changes pending\n" +
+		"Home changes:\n" +
+		"  changed in home since last apply: .zshrc\n"
+	if out.String() != want {
+		t.Fatalf("writeStatusReport(home only) = %q, want %q", out.String(), want)
+	}
+	if !homeOnly.blocksApply() || homeOnly.hasConflicts() || homeOnly.needsAttention() {
+		t.Fatalf("home-only report: blocksApply=%v hasConflicts=%v needsAttention=%v, want true false false", homeOnly.blocksApply(), homeOnly.hasConflicts(), homeOnly.needsAttention())
+	}
+
+	withConflict := homeOnly
+	withConflict.Conflict = []statusItem{{Kind: kindConflictDiverged, Path: ".gitconfig"}}
+	out.Reset()
+	if err := writeStatusReport(&out, withConflict); err != nil {
+		t.Fatalf("writeStatusReport() error = %v", err)
+	}
+	want = "Profile: personal\n" +
+		"Status: changes require attention\n" +
+		"Home changes:\n" +
+		"  changed in home since last apply: .zshrc\n" +
+		"Conflicts:\n" +
+		"  destination and profile diverged since last apply: .gitconfig\n"
+	if out.String() != want {
+		t.Fatalf("writeStatusReport(with conflict) = %q, want %q", out.String(), want)
+	}
+
+	rootConflict := statusReport{Profile: "personal", Directory: []statusItem{{Kind: kindDirectoryRootConflict, Path: ".config"}}}
+	if !rootConflict.needsAttention() {
+		t.Fatal("tracked root that is not a directory should need attention")
+	}
+}
+
 func TestWriteStatusReportGroupsByMostSpecificTrackedRoot(t *testing.T) {
 	t.Parallel()
 
@@ -234,7 +278,7 @@ func TestWriteStatusReportGroupsByMostSpecificTrackedRoot(t *testing.T) {
 		t.Fatalf("writeStatusReport() error = %v", err)
 	}
 	want := "Profile: personal\n" +
-		"Status: changes require attention\n" +
+		"Status: changes pending\n" +
 		"\n" +
 		"Tracked root: .config\n" +
 		"  Directory drift:\n" +

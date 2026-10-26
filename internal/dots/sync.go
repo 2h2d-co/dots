@@ -164,14 +164,16 @@ func buildSyncPlan(report statusReport, records []FileRecord, force bool) (syncP
 		return record, nil
 	}
 
+	for _, item := range report.Home {
+		record, err := recordFor(item)
+		if err != nil {
+			return syncPlan{}, err
+		}
+		plan.Updates = append(plan.Updates, syncPlanItem{Path: item.Path, Kind: item.Kind, Record: record})
+	}
+
 	for _, item := range report.Conflict {
 		switch item.Kind {
-		case kindConflictChanged:
-			record, err := recordFor(item)
-			if err != nil {
-				return syncPlan{}, err
-			}
-			plan.Updates = append(plan.Updates, syncPlanItem{Path: item.Path, Kind: item.Kind, Record: record})
 		case kindConflictDiverged, kindConflictManaged:
 			record, err := recordFor(item)
 			if err != nil {

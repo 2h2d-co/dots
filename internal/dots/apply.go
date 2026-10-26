@@ -36,20 +36,17 @@ func applyProfile(rt *Runtime, opts applyOptions, out io.Writer) error {
 		if err := writeApplyPlan(out, report, opts); err != nil {
 			return err
 		}
-		if report.hasConflicts() && !opts.Force {
+		if report.blocksApply() && !opts.Force {
 			return ExitError{Code: 1, Silent: true}
 		}
 		return nil
 	}
 
-	if report.hasConflicts() && !opts.Force {
+	if report.blocksApply() && !opts.Force {
 		if err := writeStatusReport(out, report); err != nil {
 			return err
 		}
-		if _, err := fmt.Fprintln(out, "Apply aborted: destination conflicts found."); err != nil {
-			return err
-		}
-		if _, err := fmt.Fprintln(out, "Resolve the conflicts, or re-run with --force to back up and overwrite conflicting destinations."); err != nil {
+		if err := writeApplyRefusal(out, report); err != nil {
 			return err
 		}
 		return ExitError{Code: 1, Silent: true}
@@ -118,6 +115,26 @@ func applyProfile(rt *Runtime, opts applyOptions, out io.Writer) error {
 	return nil
 }
 
+func writeApplyRefusal(out io.Writer, report statusReport) error {
+	if len(report.Home) > 0 {
+		if _, err := fmt.Fprintln(out, "Apply aborted: home files changed since the last apply."); err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintln(out, "Run `dots sync` to keep the home versions, or re-run with --force to back them up and overwrite them."); err != nil {
+			return err
+		}
+	}
+	if report.hasConflicts() {
+		if _, err := fmt.Fprintln(out, "Apply aborted: destination conflicts found."); err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintln(out, "Resolve the conflicts, or re-run with --force to back up and overwrite conflicting destinations."); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func writeRepoDriftRefusal(out io.Writer, operation string) error {
 	if _, err := fmt.Fprintf(out, "%s aborted: profile repo files changed since dots last indexed them.\n", operation); err != nil {
 		return err
@@ -137,6 +154,9 @@ func applyWritePaths(report statusReport, opts applyOptions) map[string]struct{}
 		}
 	}
 	if opts.Force {
+		for _, item := range report.Home {
+			paths[item.Path] = struct{}{}
+		}
 		for _, item := range report.Conflict {
 			paths[item.Path] = struct{}{}
 		}
@@ -151,8 +171,8 @@ func writeApplyPlan(out io.Writer, report statusReport, opts applyOptions) error
 	if err := writeStatusReport(out, report); err != nil {
 		return err
 	}
-	if report.hasConflicts() && opts.Force {
-		_, err := fmt.Fprintln(out, "Force enabled: conflicting destination paths would be backed up before overwrite.")
+	if report.blocksApply() && opts.Force {
+		_, err := fmt.Fprintln(out, "Force enabled: changed and conflicting destination paths would be backed up before overwrite.")
 		return err
 	}
 	return nil

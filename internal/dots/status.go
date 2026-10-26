@@ -21,7 +21,7 @@ const (
 	kindPendingUpdate         statusKind = "will update"
 	kindPendingAdopt          statusKind = "will adopt existing match"
 	kindPendingState          statusKind = "will refresh apply state"
-	kindConflictChanged       statusKind = "destination changed since last apply"
+	kindHomeChanged           statusKind = "changed in home since last apply"
 	kindConflictDiverged      statusKind = "destination and profile diverged since last apply"
 	kindConflictManaged       statusKind = "unmanaged destination differs"
 	kindConflictType          statusKind = "destination is not a regular file"
@@ -43,6 +43,7 @@ type statusReport struct {
 	TrackedDirs  []TrackedDirRecord
 	Repo         []statusItem
 	Directory    []statusItem
+	Home         []statusItem
 	Pending      []statusItem
 	Conflict     []statusItem
 	State        []statusItem
@@ -52,6 +53,7 @@ type statusGroup struct {
 	Title     string
 	Repo      []statusItem
 	Directory []statusItem
+	Home      []statusItem
 	Pending   []statusItem
 	Conflict  []statusItem
 	State     []statusItem
@@ -208,7 +210,7 @@ func analyzeStatusFromInputs(rt *Runtime, inputs statusInputs) (statusReport, []
 		case destMatchesState:
 			report.Pending = append(report.Pending, statusItem{Kind: kindPendingUpdate, Path: record.Path})
 		case stateMatchesRepo:
-			report.Conflict = append(report.Conflict, statusItem{Kind: kindConflictChanged, Path: record.Path})
+			report.Home = append(report.Home, statusItem{Kind: kindHomeChanged, Path: record.Path})
 		default:
 			report.Conflict = append(report.Conflict, statusItem{Kind: kindConflictDiverged, Path: record.Path})
 		}
@@ -324,6 +326,7 @@ func (r *statusReport) sort() {
 	sortTrackedDirs(r.TrackedDirs)
 	sortItems(r.Repo)
 	sortItems(r.Directory)
+	sortItems(r.Home)
 	sortItems(r.Pending)
 	sortItems(r.Conflict)
 	sortItems(r.State)
@@ -345,7 +348,20 @@ func sortItems(items []statusItem) {
 }
 
 func (r statusReport) dirty() bool {
-	return len(r.Repo) > 0 || len(r.Directory) > 0 || len(r.Pending) > 0 || len(r.Conflict) > 0 || len(r.State) > 0
+	return len(r.Repo) > 0 || len(r.Directory) > 0 || len(r.Home) > 0 || len(r.Pending) > 0 || len(r.Conflict) > 0 || len(r.State) > 0
+}
+
+// needsAttention reports drift that neither a plain apply nor a plain sync resolves.
+func (r statusReport) needsAttention() bool {
+	if len(r.Repo) > 0 || len(r.Conflict) > 0 {
+		return true
+	}
+	for _, item := range r.Directory {
+		if item.Kind == kindDirectoryRootConflict {
+			return true
+		}
+	}
+	return false
 }
 
 func (r statusReport) hasRepoDrift() bool {
@@ -356,12 +372,21 @@ func (r statusReport) hasConflicts() bool {
 	return len(r.Conflict) > 0
 }
 
+// blocksApply reports destinations that a plain apply refuses to overwrite.
+func (r statusReport) blocksApply() bool {
+	return len(r.Home) > 0 || len(r.Conflict) > 0
+}
+
 func writeStatusReport(out io.Writer, report statusReport) error {
 	if _, err := fmt.Fprintf(out, "Profile: %s\n", report.Profile); err != nil {
 		return err
 	}
-	if report.dirty() {
+	if report.needsAttention() {
 		if _, err := fmt.Fprintln(out, "Status: changes require attention"); err != nil {
+			return err
+		}
+	} else if report.dirty() {
+		if _, err := fmt.Fprintln(out, "Status: changes pending"); err != nil {
 			return err
 		}
 	} else if _, err := fmt.Fprintln(out, "Status: clean"); err != nil {
@@ -419,6 +444,9 @@ func writeFlatStatusSections(out io.Writer, report statusReport) error {
 	if err := writeStatusSection(out, "Directory drift", report.Directory); err != nil {
 		return err
 	}
+	if err := writeStatusSection(out, "Home changes", report.Home); err != nil {
+		return err
+	}
 	if err := writeStatusSection(out, "Pending changes", report.Pending); err != nil {
 		return err
 	}
@@ -466,6 +494,10 @@ func groupStatusItems(report statusReport) ([]statusGroup, statusGroup) {
 		group := groupForPath(item.Path)
 		group.Directory = append(group.Directory, item)
 	}
+	for _, item := range report.Home {
+		group := groupForPath(item.Path)
+		group.Home = append(group.Home, item)
+	}
 	for _, item := range report.Pending {
 		group := groupForPath(item.Path)
 		group.Pending = append(group.Pending, item)
@@ -499,7 +531,7 @@ func trackedRootForPath(trackedDirs []TrackedDirRecord, trackedPath string) (str
 }
 
 func (g statusGroup) dirty() bool {
-	return len(g.Repo) > 0 || len(g.Directory) > 0 || len(g.Pending) > 0 || len(g.Conflict) > 0 || len(g.State) > 0
+	return len(g.Repo) > 0 || len(g.Directory) > 0 || len(g.Home) > 0 || len(g.Pending) > 0 || len(g.Conflict) > 0 || len(g.State) > 0
 }
 
 func writeStatusGroup(out io.Writer, group statusGroup) error {
@@ -513,6 +545,9 @@ func writeStatusGroup(out io.Writer, group statusGroup) error {
 		return err
 	}
 	if err := writeIndentedStatusSection(out, "Directory drift", group.Directory, "  ", "    "); err != nil {
+		return err
+	}
+	if err := writeIndentedStatusSection(out, "Home changes", group.Home, "  ", "    "); err != nil {
 		return err
 	}
 	if err := writeIndentedStatusSection(out, "Pending changes", group.Pending, "  ", "    "); err != nil {

@@ -33,6 +33,11 @@ func TestSyncCommand(t *testing.T) {
 
 	result := env.requireRun("sync", "--dry-run")
 	assertContains(t, result.stdout, "Sync plan (dry run; no files changed):")
+	assertContains(t, result.stdout, "Status: changes pending")
+	assertContains(t, result.stdout, "Home changes:")
+	assertContains(t, result.stdout, "changed in home since last apply: .zshrc")
+	assertNotContains(t, result.stdout, "Conflicts")
+	assertNotContains(t, result.stdout, "require attention")
 	assertContains(t, result.stdout, "Files to update in repo:")
 	assertContains(t, result.stdout, "  .zshrc")
 	assertContains(t, result.stdout, "Files to add to repo:")
@@ -62,6 +67,45 @@ func TestSyncCommand(t *testing.T) {
 	assertFileContent(t, filepath.Join(env.repo, "personal", ".zshrc"), "home edit\n")
 }
 
+func TestHomeChangeBlocksPlainApplyAndSyncsWithoutForce(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
+	writeFile(t, filepath.Join(env.home, ".zshrc"), "base\n", 0o644)
+	env.requireRun("init", env.repo, "--profile", "personal")
+	env.requireRun("add", filepath.Join(env.home, ".zshrc"))
+	writeFile(t, filepath.Join(env.home, ".zshrc"), "home edit\n", 0o644)
+
+	result := env.run("status")
+	assertExitCode(t, result, 1)
+	assertContains(t, result.stdout, "Status: changes pending")
+	assertContains(t, result.stdout, "Home changes:")
+	assertNotContains(t, result.stdout, "Conflicts")
+
+	result = env.run("apply")
+	assertExitCode(t, result, 1)
+	assertContains(t, result.stdout, "Apply aborted: home files changed since the last apply.")
+	assertContains(t, result.stdout, "Run `dots sync` to keep the home versions")
+	assertNotContains(t, result.stdout, "destination conflicts found")
+	assertFileContent(t, filepath.Join(env.home, ".zshrc"), "home edit\n")
+
+	result = env.requireRun("apply", "--dry-run", "--force")
+	assertContains(t, result.stdout, "Force enabled: changed and conflicting destination paths would be backed up before overwrite.")
+	assertFileContent(t, filepath.Join(env.home, ".zshrc"), "home edit\n")
+
+	result = env.requireRun("sync", ".zshrc")
+	assertContains(t, result.stdout, "Sync complete: copied 1 file(s)")
+	assertNotContains(t, result.stdout, "Backups written to:")
+	assertFileContent(t, filepath.Join(env.repo, "personal", ".zshrc"), "home edit\n")
+	result = env.requireRun("status")
+	assertContains(t, result.stdout, "Status: clean")
+
+	writeFile(t, filepath.Join(env.home, ".zshrc"), "discarded edit\n", 0o644)
+	result = env.requireRun("apply", "--force")
+	assertContains(t, result.stdout, "Backups written to:")
+	assertFileContent(t, filepath.Join(env.home, ".zshrc"), "home edit\n")
+	assertBackupContains(t, filepath.Join(env.state, "dots", "backups", "personal"), ".zshrc", "discarded edit\n")
+}
+
 func TestSyncConflictAbortIsAllOrNothingAndForceBacksUpRepo(t *testing.T) {
 	t.Parallel()
 	env := newTestEnv(t)
@@ -79,6 +123,8 @@ func TestSyncConflictAbortIsAllOrNothingAndForceBacksUpRepo(t *testing.T) {
 	stateDigestBefore := stateDBFilesDigest(t, env)
 	result := env.run("sync")
 	assertExitCode(t, result, 1)
+	assertContains(t, result.stdout, "Status: changes require attention")
+	assertContains(t, result.stdout, "changed in home since last apply: .changedrc")
 	assertContains(t, result.stdout, "destination and profile diverged since last apply: .conflictrc")
 	assertContains(t, result.stdout, "Sync aborted: destination conflicts found")
 	assertFileContent(t, filepath.Join(env.repo, "personal", ".changedrc"), "changed base\n")

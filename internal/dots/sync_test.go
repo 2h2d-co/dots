@@ -22,9 +22,9 @@ func TestBuildSyncPlanMapping(t *testing.T) {
 		testFileRecord("update", "repo\n"),
 	}
 	report := statusReport{
+		Home: []statusItem{{Kind: kindHomeChanged, Path: "changed"}},
 		Conflict: []statusItem{
 			{Kind: kindConflictDiverged, Path: "diverged"},
-			{Kind: kindConflictChanged, Path: "changed"},
 			{Kind: kindConflictManaged, Path: "managed"},
 			{Kind: kindConflictType, Path: "type"},
 		},

@@ -308,7 +308,7 @@ func (a *App) newApplyCommand() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&opts.DryRun, "dry-run", false, "show what would be applied without changing files")
-	cmd.Flags().BoolVar(&opts.Force, "force", false, "back up and overwrite conflicting destination files")
+	cmd.Flags().BoolVar(&opts.Force, "force", false, "back up and overwrite changed and conflicting destination files")
 	return cmd
 }
 
@@ -357,8 +357,8 @@ func (a *App) newDiffCommand() *cobra.Command {
 func (a *App) newStatusCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
-		Short: "Show profile drift, directory drift, pending changes, and conflicts",
-		Long:  "Compare the active profile database, profile files, tracked directory roots, applied-state database, and home-directory destination files. Supported secret-scrubbed paths are compared by canonical content, so local-only npm auth token changes do not create drift. When tracked roots are present, dirty status output groups paths by the most specific tracked root and reports directly tracked files under Individual paths. A clean status prints checked-area and tracked-count summaries and exits 0; drift, pending changes, conflicts, directory drift, or stale state exit 1.",
+		Short: "Show profile drift, directory drift, home changes, pending changes, and conflicts",
+		Long:  "Compare the active profile database, profile files, tracked directory roots, applied-state database, and home-directory destination files. Supported secret-scrubbed paths are compared by canonical content, so local-only npm auth token changes do not create drift. When tracked roots are present, dirty status output groups paths by the most specific tracked root and reports directly tracked files under Individual paths. Home changes are tracked files edited only in the home directory since the last apply; plain sync copies them and plain apply refuses them. A clean status prints checked-area and tracked-count summaries and exits 0; drift, home changes, pending changes, conflicts, directory drift, or stale state exit 1.",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			rt, err := a.resolveRuntime()

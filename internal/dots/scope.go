@@ -53,6 +53,7 @@ func (s pathScope) filterReport(report statusReport) statusReport {
 	filtered := statusReport{Profile: report.Profile, TrackedFiles: report.TrackedFiles, TrackedDirs: report.TrackedDirs}
 	filtered.Repo = s.filterStatusItems(report.Repo)
 	filtered.Directory = s.filterStatusItems(report.Directory)
+	filtered.Home = s.filterStatusItems(report.Home)
 	filtered.Pending = s.filterStatusItems(report.Pending)
 	filtered.Conflict = s.filterStatusItems(report.Conflict)
 	filtered.State = s.filterStatusItems(report.State)
@@ -118,7 +119,7 @@ func scopePathMatchesInputs(scopePath string, inputs statusInputs) bool {
 }
 
 func scopePathMatchesReport(scopePath string, report statusReport) bool {
-	for _, items := range [][]statusItem{report.Repo, report.Directory, report.Pending, report.Conflict, report.State} {
+	for _, items := range [][]statusItem{report.Repo, report.Directory, report.Home, report.Pending, report.Conflict, report.State} {
 		for _, item := range items {
 			if trackedPathInsideRoot(scopePath, item.Path) {
 				return true

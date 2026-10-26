@@ -97,8 +97,8 @@ func TestBuildApplyDiffPlanIncludesForceConflicts(t *testing.T) {
 	writeDestinationFile(t, rt, "update", "home\n")
 	writeDestinationFile(t, rt, "conflict", "home conflict\n")
 	report := statusReport{
-		Pending:  []statusItem{{Kind: kindPendingUpdate, Path: "update"}},
-		Conflict: []statusItem{{Kind: kindConflictChanged, Path: "conflict"}},
+		Pending: []statusItem{{Kind: kindPendingUpdate, Path: "update"}},
+		Home:    []statusItem{{Kind: kindHomeChanged, Path: "conflict"}},
 	}
 
 	plan, err := buildApplyDiffPlan(rt, report, []FileRecord{update, conflict})
@@ -121,10 +121,8 @@ func TestBuildSyncDiffPlanIncludesDestinationWinsAndTrackedRootCreates(t *testin
 	report := statusReport{
 		Directory: []statusItem{{Kind: kindDirectoryUntracked, Path: ".config/app/new"}},
 		Pending:   []statusItem{{Kind: kindPendingCreate, Path: "missing"}},
-		Conflict: []statusItem{
-			{Kind: kindConflictChanged, Path: "changed"},
-			{Kind: kindConflictManaged, Path: "managed"},
-		},
+		Home:      []statusItem{{Kind: kindHomeChanged, Path: "changed"}},
+		Conflict:  []statusItem{{Kind: kindConflictManaged, Path: "managed"}},
 	}
 
 	plan, err := buildSyncDiffPlan(rt, report, []FileRecord{changed, managed})
