@@ -6,6 +6,8 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) st
 
 ## Unreleased
 
+## [0.0.9] - 2026-10-26
+
 ### Changed
 
 - `dots status`, `dots sync --dry-run`, and `dots apply` now list tracked files edited only in `$HOME`
