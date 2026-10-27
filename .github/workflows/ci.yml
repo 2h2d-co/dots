@@ -32,7 +32,7 @@ jobs:
           version: "2026.10.18"
           install: true
           install_args: --locked go
-          cache: true
+          cache: false
 
       - name: Check formatting
         run: test -z "$(gofmt -l .)"
@@ -70,7 +70,7 @@ jobs:
           version: "2026.10.18"
           install: true
           install_args: --locked go hk betterleaks golangci-lint jactionlint zizmor
-          cache: true
+          cache: false
 
       - name: Run shared hk checks
         run: hk check --all --check
