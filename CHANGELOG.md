@@ -6,6 +6,8 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) st
 
 ## Unreleased
 
+## [0.0.10] - 2026-11-08
+
 ### Security
 
 - Updated `github.com/klauspost/compress` to v1.20.3. Earlier versions panic on zstd frames with
