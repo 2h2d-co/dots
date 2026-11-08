@@ -6,6 +6,14 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) st
 
 ## Unreleased
 
+### Security
+
+- Updated `github.com/klauspost/compress` to v1.20.3. Earlier versions panic on zstd frames with
+  two blocks (GO-2026-6865, CVE-2026-116591). The secret scan decodes zstd archives in tracked
+  files, so a crafted file could make `dots` panic.
+- Updated `golang.org/x/net` to v0.62.0 for its HTTP/2 and HTML parser advisories. `dots` does not
+  call the affected packages.
+
 ## [0.0.9] - 2026-10-26
 
 ### Changed
