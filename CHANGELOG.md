@@ -6,6 +6,12 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) st
 
 ## Unreleased
 
+### Security
+
+- Built with Go 1.27.4, which fixes CVE-2026-97033 to CVE-2026-97043 and CVE-2026-97054 in the Go
+  toolchain and standard library. govulncheck reports GO-2026-6859 (CVE-2026-97054), an HTTP/1
+  server crash in `net/http`, as reachable. `dots` runs no HTTP server, so it was not exposed.
+
 ## [0.0.10] - 2026-11-08
 
 ### Security
